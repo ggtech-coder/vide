@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Relógio de Oração — Jejum 21 Dias</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="topo">
+  <div class="topo-conteudo">
+    <p class="topo-eyebrow" id="jejum-tema">carregando…</p>
+    <h1>Relógio de Oração</h1>
+  </div>
+  <nav class="abas" id="abas">
+    <button class="aba ativa" data-aba="painel">Painel</button>
+    <button class="aba" data-aba="discipulador">Área do discipulador</button>
+  </nav>
+</header>
+
+<main>
+
+  <!-- ===================== PAINEL (visão geral) ===================== -->
+  <section id="tab-painel" class="tab ativo">
+
+    <div id="seed-aviso" class="seed-aviso oculto">
+      <p>Nenhuma rede encontrada no banco de dados. Isso é esperado na primeira vez que o sistema roda.</p>
+      <button id="btn-seed" class="botao botao-principal">Configurar as 6 redes iniciais</button>
+    </div>
+
+    <div class="controles-painel">
+      <div class="dias-escada" id="dias-escada" aria-label="Selecionar dia do jejum"></div>
+      <label class="chave-total">
+        <input type="checkbox" id="chk-total-jejum">
+        <span>Somar o jejum inteiro (dias 1–<span id="total-dias-label">21</span>)</span>
+      </label>
+    </div>
+
+    <p class="atualizado-em">Atualizado às <span id="hora-atualizacao">—</span> · <button id="btn-atualizar" class="link-botao">atualizar agora</button></p>
+
+    <div id="painel-conteudo" class="painel-conteudo"></div>
+
+    <div class="total-geral" id="total-geral">
+      <span class="total-geral-rotulo">Total da rede de oração</span>
+      <span class="total-geral-valor" id="total-geral-valor">0h 0min</span>
+    </div>
+
+  </section>
+
+  <!-- ===================== ÁREA DO DISCIPULADOR ===================== -->
+  <section id="tab-discipulador" class="tab">
+
+    <!-- Login -->
+    <div id="login-box" class="cartao-login">
+      <h2>Entrar como discipulador</h2>
+      <p class="ajuda">Cada rede tem sua própria senha (PIN). Peça ao coordenador se não souber a sua.</p>
+      <form id="form-login">
+        <label>
+          Rede
+          <select id="login-rede" required></select>
+        </label>
+        <label>
+          PIN
+          <input type="password" id="login-pin" inputmode="numeric" required>
+        </label>
+        <p class="erro oculto" id="login-erro">PIN incorreto. Tente novamente.</p>
+        <button type="submit" class="botao botao-principal">Entrar</button>
+      </form>
+    </div>
+
+    <!-- Painel do discipulador (depois do login) -->
+    <div id="admin-box" class="admin-box oculto">
+      <div class="admin-cabecalho">
+        <div>
+          <p class="topo-eyebrow" id="admin-categoria">—</p>
+          <h2 id="admin-nome-rede">—</h2>
+        </div>
+        <button id="btn-sair" class="link-botao">sair</button>
+      </div>
+
+      <details class="config-pin">
+        <summary>Trocar o PIN desta rede</summary>
+        <form id="form-pin">
+          <input type="password" id="novo-pin" inputmode="numeric" placeholder="Novo PIN" required>
+          <button type="submit" class="botao botao-secundario">Salvar novo PIN</button>
+        </form>
+      </details>
+
+      <form id="form-celula" class="form-inline">
+        <input type="text" id="nome-celula" placeholder="Nome da nova célula" required>
+        <button type="submit" class="botao botao-principal">Adicionar célula</button>
+      </form>
+
+      <div id="lista-celulas" class="lista-celulas"></div>
+
+    </div>
+
+  </section>
+
+</main>
+
+<template id="tpl-celula-admin">
+  <article class="celula-admin">
+    <div class="celula-admin-cabecalho">
+      <h3 class="nome-celula"></h3>
+      <span class="celula-total"></span>
+    </div>
+    <form class="form-membro form-inline">
+      <input type="text" class="nome-membro" placeholder="Nome do membro" required>
+      <button type="submit" class="botao botao-secundario">Adicionar membro</button>
+    </form>
+    <div class="lista-membros"></div>
+  </article>
+</template>
+
+<template id="tpl-membro-admin">
+  <div class="membro-admin">
+    <div class="membro-admin-linha">
+      <span class="membro-nome"></span>
+      <span class="membro-total"></span>
+    </div>
+    <form class="form-registro">
+      <select class="registro-dia"></select>
+      <input type="number" class="registro-horas" min="0" placeholder="h" inputmode="numeric">
+      <input type="number" class="registro-minutos" min="0" max="59" placeholder="min" inputmode="numeric">
+      <button type="submit" class="botao botao-pequeno">Lançar</button>
+    </form>
+    <ul class="lista-registros"></ul>
+  </div>
+</template>
+
+<template id="tpl-registro-item">
+  <li>
+    <span class="registro-item-dia"></span>
+    <span class="registro-item-tempo"></span>
+    <button type="button" class="registro-item-excluir" title="Excluir lançamento">excluir</button>
+  </li>
+</template>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
