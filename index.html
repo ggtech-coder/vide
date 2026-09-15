@@ -4,17 +4,24 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Relógio de Oração — Jejum 21 Dias</title>
+<link rel="icon" href="img/logo-videira.png">
+<meta name="theme-color" content="#1B1F3B">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
+<div class="ceu" aria-hidden="true"></div>
+
 <header class="topo">
-  <div class="topo-conteudo">
-    <p class="topo-eyebrow" id="jejum-tema">carregando…</p>
-    <h1>Relógio de Oração</h1>
+  <div class="topo-marca">
+    <img class="logo-igreja" id="logo-igreja" src="img/logo-videira.png" alt="Logo da igreja">
+    <div class="topo-conteudo">
+      <p class="topo-eyebrow" id="jejum-tema">carregando…</p>
+      <h1>Relógio de Oração</h1>
+    </div>
   </div>
   <nav class="abas" id="abas">
     <button class="aba ativa" data-aba="painel">Painel</button>
@@ -40,9 +47,17 @@
       </label>
     </div>
 
-    <p class="atualizado-em">Atualizado às <span id="hora-atualizacao">—</span> · <button id="btn-atualizar" class="link-botao">atualizar agora</button></p>
+    <p class="atualizado-em">
+      <span class="pulso-ao-vivo" aria-hidden="true"></span>
+      Atualizado às <span id="hora-atualizacao">—</span> · <button id="btn-atualizar" class="link-botao">atualizar agora</button>
+    </p>
 
-    <div id="painel-conteudo" class="painel-conteudo"></div>
+    <div class="comparativo-categorias oculto" id="comparativo-categorias"></div>
+
+    <div id="painel-conteudo" class="painel-conteudo">
+      <div class="skeleton-bloco"></div>
+      <div class="skeleton-bloco"></div>
+    </div>
 
     <div class="total-geral" id="total-geral">
       <span class="total-geral-rotulo">Total da rede de oração</span>
@@ -75,12 +90,20 @@
     <!-- Painel do discipulador (depois do login) -->
     <div id="admin-box" class="admin-box oculto">
       <div class="admin-cabecalho">
-        <div>
-          <p class="topo-eyebrow" id="admin-categoria">—</p>
-          <h2 id="admin-nome-rede">—</h2>
+        <div class="admin-titulo">
+          <img id="admin-logo" class="admin-logo oculto" alt="">
+          <div>
+            <p class="topo-eyebrow" id="admin-categoria">—</p>
+            <h2 id="admin-nome-rede">—</h2>
+          </div>
         </div>
         <button id="btn-sair" class="link-botao">sair</button>
       </div>
+
+      <label class="seletor-rede-mestre oculto" id="seletor-rede-mestre-wrap">
+        Gerenciando a rede
+        <select id="seletor-rede-mestre"></select>
+      </label>
 
       <details class="config-pin">
         <summary>Trocar o PIN desta rede</summary>
@@ -89,6 +112,29 @@
           <button type="submit" class="botao botao-secundario">Salvar novo PIN</button>
         </form>
       </details>
+
+      <details class="config-pin oculto" id="gerenciar-pins-wrap">
+        <summary>Gerenciar PIN de todas as redes (acesso administrador)</summary>
+        <div id="gerenciar-pins-lista" class="gerenciar-pins-lista"></div>
+        <form id="form-admin-pin" class="form-admin-pin">
+          <span>Trocar o PIN administrador</span>
+          <input type="password" id="novo-pin-admin" inputmode="numeric" placeholder="Novo PIN administrador" required>
+          <button type="submit" class="botao botao-secundario">Salvar</button>
+        </form>
+      </details>
+
+      <div class="dia-lancamento" id="dia-lancamento">
+        <span class="dia-lancamento-rotulo">Lançando tempo de oração para</span>
+        <div class="dia-lancamento-controle">
+          <button type="button" id="dia-lanc-prev" class="dia-lanc-seta" aria-label="Dia anterior">‹</button>
+          <div class="dia-lanc-atual">
+            <strong id="dia-lanc-num">Dia 1</strong>
+            <span id="dia-lanc-data">—</span>
+          </div>
+          <button type="button" id="dia-lanc-next" class="dia-lanc-seta" aria-label="Próximo dia">›</button>
+        </div>
+        <button type="button" id="dia-lanc-hoje" class="link-botao">ir para hoje</button>
+      </div>
 
       <form id="form-celula" class="form-inline">
         <input type="text" id="nome-celula" placeholder="Nome da nova célula" required>
@@ -124,10 +170,9 @@
       <span class="membro-total"></span>
     </div>
     <form class="form-registro">
-      <select class="registro-dia"></select>
       <input type="number" class="registro-horas" min="0" placeholder="h" inputmode="numeric">
       <input type="number" class="registro-minutos" min="0" max="59" placeholder="min" inputmode="numeric">
-      <button type="submit" class="botao botao-pequeno">Lançar</button>
+      <button type="submit" class="botao botao-pequeno">Lançar no dia selecionado</button>
     </form>
     <ul class="lista-registros"></ul>
   </div>
@@ -140,6 +185,18 @@
     <button type="button" class="registro-item-excluir" title="Excluir lançamento">excluir</button>
   </li>
 </template>
+
+<div class="toast-container" id="toast-container" aria-live="polite"></div>
+
+<div class="modal-fundo oculto" id="modal-confirmar">
+  <div class="modal-caixa" role="alertdialog" aria-modal="true">
+    <p id="modal-confirmar-texto">Tem certeza?</p>
+    <div class="modal-botoes">
+      <button type="button" class="botao botao-secundario" id="modal-cancelar">Cancelar</button>
+      <button type="button" class="botao botao-perigo" id="modal-confirmar-ok">Excluir</button>
+    </div>
+  </div>
+</div>
 
 <script type="module" src="js/app.js"></script>
 </body>

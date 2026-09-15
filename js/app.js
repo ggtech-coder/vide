@@ -3,10 +3,15 @@ import {
   getFirestore, collection, doc, setDoc, addDoc, getDocs, getDoc,
   deleteDoc, updateDoc, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig, JEJUM_INICIO, JEJUM_DIAS, JEJUM_TEMA, REDES_PADRAO } from "./config.js";
+import {
+  firebaseConfig, JEJUM_INICIO, JEJUM_DIAS, JEJUM_TEMA, REDES_PADRAO,
+  IGREJA_NOME, IGREJA_LOGO, ADMIN_PIN_PADRAO
+} from "./config.js";
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+
+const ADMIN_VALOR_SELECT = "__ADMIN__";
 
 // ===================== UTIL =====================
 
@@ -44,11 +49,83 @@ function somaRegistros(registros, diaFiltro){
     .reduce((acc, r) => acc + (r.minutos || 0), 0);
 }
 
+function logoDaRede(redeId){
+  const r = REDES_PADRAO.find(x => x.id === redeId);
+  return r && r.logo ? r.logo : null;
+}
+
+const reduzMovimento = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+// Anima um número (em minutos) dentro de um elemento, formatando com formatarMinutos.
+function animarValor(el, deValor, paraValor){
+  if (reduzMovimento || deValor === paraValor){
+    el.textContent = formatarMinutos(paraValor);
+    return;
+  }
+  const duracao = 500;
+  const inicioT = performance.now();
+  function passo(agora){
+    const t = Math.min(1, (agora - inicioT) / duracao);
+    const suavizado = 1 - Math.pow(1 - t, 3);
+    const atual = Math.round(deValor + (paraValor - deValor) * suavizado);
+    el.textContent = formatarMinutos(atual);
+    if (t < 1) requestAnimationFrame(passo);
+  }
+  requestAnimationFrame(passo);
+}
+
+// ===================== TOASTS =====================
+
+function toast(mensagem, tipo = "ok"){
+  const cont = document.getElementById("toast-container");
+  const el = document.createElement("div");
+  el.className = "toast" + (tipo === "erro" ? " erro-toast" : "");
+  el.textContent = mensagem;
+  cont.appendChild(el);
+  setTimeout(() => {
+    el.classList.add("saindo");
+    setTimeout(() => el.remove(), 220);
+  }, 3200);
+}
+
+// ===================== MODAL DE CONFIRMAÇÃO =====================
+
+function confirmarModal(texto, textoBotao = "Excluir"){
+  return new Promise((resolve) => {
+    const modal = document.getElementById("modal-confirmar");
+    document.getElementById("modal-confirmar-texto").textContent = texto;
+    const btnOk = document.getElementById("modal-confirmar-ok");
+    const btnCancelar = document.getElementById("modal-cancelar");
+    btnOk.textContent = textoBotao;
+    modal.classList.remove("oculto");
+
+    function limpar(resultado){
+      modal.classList.add("oculto");
+      btnOk.removeEventListener("click", onOk);
+      btnCancelar.removeEventListener("click", onCancelar);
+      document.removeEventListener("keydown", onEsc);
+      resolve(resultado);
+    }
+    function onOk(){ limpar(true); }
+    function onCancelar(){ limpar(false); }
+    function onEsc(e){ if (e.key === "Escape") limpar(false); }
+
+    btnOk.addEventListener("click", onOk);
+    btnCancelar.addEventListener("click", onCancelar);
+    document.addEventListener("keydown", onEsc);
+  });
+}
+
 // ===================== ESTADO =====================
 
 let escopoAtual = diaAtualEstimado(); // número do dia, ou "todos"
 let redeLogada = null; // { id, nome, categoria }
+let modoMestre = false; // true quando logado com o PIN administrador
+let redesCache = []; // últimas redes conhecidas (para o seletor mestre)
+let diaLancamento = diaAtualEstimado(); // dia usado ao lançar tempo de oração
+let ultimoTotalGeral = 0;
 let autoRefreshTimer = null;
+let primeiraCargaPainel = true;
 
 // ===================== NAVEGAÇÃO ENTRE ABAS =====================
 
@@ -65,6 +142,8 @@ document.getElementById("abas").addEventListener("click", (e) => {
 
 document.getElementById("jejum-tema").textContent = `Jejum de ${JEJUM_DIAS} dias — ${JEJUM_TEMA}`;
 document.getElementById("total-dias-label").textContent = JEJUM_DIAS;
+document.getElementById("logo-igreja").alt = IGREJA_NOME;
+document.getElementById("logo-igreja").src = IGREJA_LOGO;
 
 // ===================== BUSCA DE DADOS =====================
 
@@ -112,11 +191,13 @@ document.getElementById("btn-seed").addEventListener("click", async () => {
   for (const r of REDES_PADRAO){
     await setDoc(doc(db, "redes", r.id), { nome: r.nome, categoria: r.categoria, pin: r.pin });
   }
+  await setDoc(doc(db, "config", "admin"), { pin: ADMIN_PIN_PADRAO }, { merge: true });
   await verificarSeed();
   await carregarPainel();
   await popularSelectRedesLogin();
   btn.disabled = false;
   btn.textContent = "Configurar as 6 redes iniciais";
+  toast("Redes configuradas com sucesso.");
 });
 
 // ===================== ESCADA DE DIAS (painel) =====================
@@ -150,11 +231,17 @@ document.getElementById("btn-atualizar").addEventListener("click", carregarPaine
 
 async function carregarPainel(){
   const cont = document.getElementById("painel-conteudo");
+  if (primeiraCargaPainel){
+    cont.innerHTML = `<div class="skeleton-bloco"></div><div class="skeleton-bloco"></div>`;
+  }
+
   const redes = await buscarTodasRedes();
+  redesCache = redes;
 
   const categorias = ["Jovens", "Adolescentes"];
   cont.innerHTML = "";
   let totalGeral = 0;
+  const totalPorCategoria = {};
 
   for (const categoria of categorias){
     const redesCategoria = redes.filter(r => r.categoria === categoria);
@@ -163,6 +250,8 @@ async function carregarPainel(){
     const blocoCategoria = document.createElement("div");
     blocoCategoria.className = "categoria-bloco";
     blocoCategoria.innerHTML = `<h2 class="categoria-titulo ${categoria.toLowerCase()}">${categoria}</h2>`;
+
+    let totalCategoria = 0;
 
     for (const rede of redesCategoria){
       let totalRede = 0;
@@ -185,22 +274,62 @@ async function carregarPainel(){
       }).join("");
 
       totalGeral += totalRede;
+      totalCategoria += totalRede;
+
+      const logo = logoDaRede(rede.id);
+      const logoHtml = logo ? `<img class="rede-logo" src="${logo}" alt="${rede.nome}">` : "";
 
       redeBloco.innerHTML = `
         <div class="rede-cabecalho">
-          <span class="rede-nome">${rede.nome}</span>
+          <span class="rede-nome-grupo">${logoHtml}<span class="rede-nome">${rede.nome}</span></span>
           <span class="rede-total">${formatarMinutos(totalRede)}</span>
         </div>
+        <div class="rede-barra"><div class="rede-barra-preenchimento" style="width:0%" data-alvo=""></div></div>
         ${celulasHtml || '<p class="membro-item zerado">Nenhuma célula cadastrada ainda.</p>'}
       `;
+      redeBloco.dataset.totalRede = totalRede;
       blocoCategoria.appendChild(redeBloco);
     }
+    totalPorCategoria[categoria] = totalCategoria;
     cont.appendChild(blocoCategoria);
   }
 
-  document.getElementById("total-geral-valor").textContent = formatarMinutos(totalGeral);
+  // Preenche as barrinhas de cada rede proporcional ao maior total do painel,
+  // depois que todos os totais já foram calculados.
+  const maiorTotalRede = Math.max(1, ...Array.from(cont.querySelectorAll(".rede-bloco")).map(b => Number(b.dataset.totalRede)));
+  cont.querySelectorAll(".rede-bloco").forEach(bloco => {
+    const total = Number(bloco.dataset.totalRede);
+    const barra = bloco.querySelector(".rede-barra-preenchimento");
+    requestAnimationFrame(() => { barra.style.width = `${Math.round((total / maiorTotalRede) * 100)}%`; });
+  });
+
+  montarComparativoCategorias(totalPorCategoria);
+
+  const elTotalGeral = document.getElementById("total-geral-valor");
+  animarValor(elTotalGeral, primeiraCargaPainel ? totalGeral : ultimoTotalGeral, totalGeral);
+  ultimoTotalGeral = totalGeral;
+  primeiraCargaPainel = false;
+
   document.getElementById("hora-atualizacao").textContent =
     new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
+
+function montarComparativoCategorias(totalPorCategoria){
+  const wrap = document.getElementById("comparativo-categorias");
+  const entradas = Object.entries(totalPorCategoria).filter(([, v]) => v !== undefined);
+  if (entradas.length < 2){
+    wrap.classList.add("oculto");
+    return;
+  }
+  wrap.classList.remove("oculto");
+  const maior = Math.max(1, ...entradas.map(([, v]) => v));
+  wrap.innerHTML = entradas.map(([nome, valor]) => `
+    <div class="comparativo-linha">
+      <span class="comparativo-nome">${nome}</span>
+      <div class="comparativo-trilho"><div class="comparativo-preenchimento ${nome.toLowerCase()}" style="width:${Math.round((valor / maior) * 100)}%"></div></div>
+      <span class="comparativo-valor">${formatarMinutos(valor)}</span>
+    </div>
+  `).join("");
 }
 
 // ===================== LOGIN DO DISCIPULADOR =====================
@@ -209,6 +338,12 @@ async function popularSelectRedesLogin(){
   const sel = document.getElementById("login-rede");
   const redesSnap = await getDocs(collection(db, "redes"));
   sel.innerHTML = "";
+
+  const optAdmin = document.createElement("option");
+  optAdmin.value = ADMIN_VALOR_SELECT;
+  optAdmin.textContent = "🔑 Acesso administrador (todas as redes)";
+  sel.appendChild(optAdmin);
+
   redesSnap.docs
     .sort((a,b) => a.data().nome.localeCompare(b.data().nome))
     .forEach(d => {
@@ -221,30 +356,153 @@ async function popularSelectRedesLogin(){
 
 document.getElementById("form-login").addEventListener("submit", async (e) => {
   e.preventDefault();
-  const redeId = document.getElementById("login-rede").value;
+  const valorSelecionado = document.getElementById("login-rede").value;
   const pin = document.getElementById("login-pin").value.trim();
   const erroEl = document.getElementById("login-erro");
   erroEl.classList.add("oculto");
 
-  const snap = await getDoc(doc(db, "redes", redeId));
+  if (valorSelecionado === ADMIN_VALOR_SELECT){
+    const snap = await getDoc(doc(db, "config", "admin"));
+    const pinValido = snap.exists() ? String(snap.data().pin) : ADMIN_PIN_PADRAO;
+    if (pin !== pinValido){
+      erroEl.textContent = "PIN incorreto. Tente novamente.";
+      erroEl.classList.remove("oculto");
+      return;
+    }
+    sessionStorage.setItem("redeLogadaId", ADMIN_VALOR_SELECT);
+    await entrarComoMestre();
+    document.getElementById("login-pin").value = "";
+    return;
+  }
+
+  const snap = await getDoc(doc(db, "redes", valorSelecionado));
   if (!snap.exists() || String(snap.data().pin) !== pin){
+    erroEl.textContent = "PIN incorreto. Tente novamente.";
     erroEl.classList.remove("oculto");
     return;
   }
 
-  redeLogada = { id: redeId, ...snap.data() };
-  sessionStorage.setItem("redeLogadaId", redeId);
+  sessionStorage.setItem("redeLogadaId", valorSelecionado);
+  await entrarComoRede(valorSelecionado, snap.data());
+  document.getElementById("login-pin").value = "";
+});
+
+async function entrarComoRede(redeId, dados){
+  modoMestre = false;
+  redeLogada = { id: redeId, ...dados };
   document.getElementById("login-box").classList.add("oculto");
   document.getElementById("admin-box").classList.remove("oculto");
   document.getElementById("admin-nome-rede").textContent = redeLogada.nome;
   document.getElementById("admin-categoria").textContent = redeLogada.categoria;
-  document.getElementById("login-pin").value = "";
+  document.getElementById("seletor-rede-mestre-wrap").classList.add("oculto");
+  document.getElementById("gerenciar-pins-wrap").classList.add("oculto");
+
+  const logo = logoDaRede(redeId);
+  const logoEl = document.getElementById("admin-logo");
+  if (logo){
+    logoEl.src = logo;
+    logoEl.alt = redeLogada.nome;
+    logoEl.classList.remove("oculto");
+  } else {
+    logoEl.classList.add("oculto");
+  }
+
+  resetarDiaLancamento();
   await carregarAdmin();
+}
+
+async function entrarComoMestre(){
+  modoMestre = true;
+  const redesSnap = await getDocs(collection(db, "redes"));
+  const listaRedes = redesSnap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .sort((a,b) => a.nome.localeCompare(b.nome));
+
+  if (listaRedes.length === 0){
+    toast("Nenhuma rede cadastrada ainda.", "erro");
+    return;
+  }
+
+  const sel = document.getElementById("seletor-rede-mestre");
+  sel.innerHTML = listaRedes.map(r => `<option value="${r.id}">${r.nome} (${r.categoria})</option>`).join("");
+  sessionStorage.setItem("mestreRedeAtual", listaRedes[0].id);
+
+  document.getElementById("login-box").classList.add("oculto");
+  document.getElementById("admin-box").classList.remove("oculto");
+  document.getElementById("seletor-rede-mestre-wrap").classList.remove("oculto");
+  document.getElementById("gerenciar-pins-wrap").classList.remove("oculto");
+  document.getElementById("admin-logo").classList.add("oculto");
+
+  montarGerenciadorPins(listaRedes);
+  await selecionarRedeNoMestre(listaRedes[0].id, listaRedes);
+}
+
+async function selecionarRedeNoMestre(redeId, listaRedesConhecida){
+  const snap = await getDoc(doc(db, "redes", redeId));
+  if (!snap.exists()) return;
+  const dados = snap.data();
+  redeLogada = { id: redeId, ...dados };
+  sessionStorage.setItem("mestreRedeAtual", redeId);
+
+  document.getElementById("admin-nome-rede").textContent = dados.nome;
+  document.getElementById("admin-categoria").textContent = `${dados.categoria} · modo administrador`;
+
+  const logo = logoDaRede(redeId);
+  const logoEl = document.getElementById("admin-logo");
+  if (logo){
+    logoEl.src = logo;
+    logoEl.alt = dados.nome;
+    logoEl.classList.remove("oculto");
+  } else {
+    logoEl.classList.add("oculto");
+  }
+
+  resetarDiaLancamento();
+  await carregarAdmin();
+}
+
+document.getElementById("seletor-rede-mestre").addEventListener("change", async (e) => {
+  await selecionarRedeNoMestre(e.target.value);
+});
+
+function montarGerenciadorPins(listaRedes){
+  const wrap = document.getElementById("gerenciar-pins-lista");
+  wrap.innerHTML = listaRedes.map(r => `
+    <form class="gerenciar-pins-linha" data-rede-id="${r.id}">
+      <span>${r.nome}</span>
+      <input type="password" inputmode="numeric" placeholder="Novo PIN" class="gerenciar-pin-input" required>
+      <button type="submit" class="botao botao-pequeno botao-secundario">Salvar</button>
+    </form>
+  `).join("");
+
+  wrap.querySelectorAll("form").forEach(form => {
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const redeId = form.dataset.redeId;
+      const input = form.querySelector(".gerenciar-pin-input");
+      const novoPin = input.value.trim();
+      if (!novoPin) return;
+      await updateDoc(doc(db, "redes", redeId), { pin: novoPin });
+      input.value = "";
+      toast(`PIN da rede atualizado.`);
+    });
+  });
+}
+
+document.getElementById("form-admin-pin").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const novoPin = document.getElementById("novo-pin-admin").value.trim();
+  if (!novoPin) return;
+  await setDoc(doc(db, "config", "admin"), { pin: novoPin }, { merge: true });
+  document.getElementById("novo-pin-admin").value = "";
+  toast("PIN administrador atualizado.");
 });
 
 document.getElementById("btn-sair").addEventListener("click", () => {
   redeLogada = null;
+  modoMestre = false;
   sessionStorage.removeItem("redeLogadaId");
+  sessionStorage.removeItem("mestreRedeAtual");
   document.getElementById("admin-box").classList.add("oculto");
   document.getElementById("login-box").classList.remove("oculto");
 });
@@ -255,7 +513,36 @@ document.getElementById("form-pin").addEventListener("submit", async (e) => {
   if (!novoPin) return;
   await updateDoc(doc(db, "redes", redeLogada.id), { pin: novoPin });
   document.getElementById("novo-pin").value = "";
-  alert("PIN atualizado.");
+  toast("PIN atualizado.");
+});
+
+// ===================== DIA DE LANÇAMENTO (corrige o bug do seletor gigante) =====================
+// Em vez de um <select> com 21 dias repetido em cada membro (que reiniciava
+// para o dia atual a cada lançamento), existe um único seletor de dia no
+// topo da área do discipulador. Ele é lembrado em memória e só muda quando
+// o próprio discipulador navega — nunca "some" sozinho depois de lançar.
+
+function resetarDiaLancamento(){
+  diaLancamento = diaAtualEstimado();
+  atualizarRotuloDiaLancamento();
+}
+
+function atualizarRotuloDiaLancamento(){
+  document.getElementById("dia-lanc-num").textContent = `Dia ${diaLancamento}`;
+  document.getElementById("dia-lanc-data").textContent = dataFromDia(diaLancamento);
+  document.getElementById("dia-lanc-prev").disabled = diaLancamento <= 1;
+  document.getElementById("dia-lanc-next").disabled = diaLancamento >= JEJUM_DIAS;
+}
+
+document.getElementById("dia-lanc-prev").addEventListener("click", () => {
+  if (diaLancamento > 1){ diaLancamento--; atualizarRotuloDiaLancamento(); }
+});
+document.getElementById("dia-lanc-next").addEventListener("click", () => {
+  if (diaLancamento < JEJUM_DIAS){ diaLancamento++; atualizarRotuloDiaLancamento(); }
+});
+document.getElementById("dia-lanc-hoje").addEventListener("click", () => {
+  diaLancamento = diaAtualEstimado();
+  atualizarRotuloDiaLancamento();
 });
 
 // ===================== ADMIN: CÉLULAS / MEMBROS / REGISTROS =====================
@@ -268,17 +555,11 @@ document.getElementById("form-celula").addEventListener("submit", async (e) => {
   await addDoc(collection(db, "redes", redeLogada.id, "celulas"), { nome });
   input.value = "";
   await carregarAdmin();
+  toast(`Célula "${nome}" adicionada.`);
 });
 
-function opcoesDias(diaSelecionado){
-  let html = "";
-  for (let d = 1; d <= JEJUM_DIAS; d++){
-    html += `<option value="${d}" ${d === diaSelecionado ? "selected" : ""}>Dia ${d} — ${dataFromDia(d)}</option>`;
-  }
-  return html;
-}
-
 async function carregarAdmin(){
+  atualizarRotuloDiaLancamento();
   const celulas = await buscarUmaRede(redeLogada.id);
   const lista = document.getElementById("lista-celulas");
   const tplCelula = document.getElementById("tpl-celula-admin");
@@ -302,6 +583,7 @@ async function carregarAdmin(){
       if (!nome) return;
       await addDoc(collection(db, "redes", redeLogada.id, "celulas", celula.id, "membros"), { nome });
       await carregarAdmin();
+      toast(`${nome} adicionado à célula.`);
     });
 
     const listaMembros = noCelula.querySelector(".lista-membros");
@@ -311,13 +593,10 @@ async function carregarAdmin(){
       noMembro.querySelector(".membro-total").textContent =
         `Total: ${formatarMinutos(somaRegistros(membro.registros, "todos"))}`;
 
-      const selectDia = noMembro.querySelector(".registro-dia");
-      selectDia.innerHTML = opcoesDias(diaAtualEstimado());
-
       const formRegistro = noMembro.querySelector(".form-registro");
       formRegistro.addEventListener("submit", async (e) => {
         e.preventDefault();
-        const dia = Number(formRegistro.querySelector(".registro-dia").value);
+        const dia = diaLancamento;
         const horas = Number(formRegistro.querySelector(".registro-horas").value) || 0;
         const minutos = Number(formRegistro.querySelector(".registro-minutos").value) || 0;
         const totalMin = horas * 60 + minutos;
@@ -327,6 +606,7 @@ async function carregarAdmin(){
           { dia, data: dataFromDia(dia), minutos: totalMin, criadoEm: serverTimestamp() }
         );
         await carregarAdmin();
+        toast(`Lançado para ${membro.nome}: ${formatarMinutos(totalMin)} no Dia ${dia}.`);
       });
 
       const listaRegistros = noMembro.querySelector(".lista-registros");
@@ -337,9 +617,11 @@ async function carregarAdmin(){
           noReg.querySelector(".registro-item-dia").textContent = `Dia ${reg.dia} — ${reg.data}`;
           noReg.querySelector(".registro-item-tempo").textContent = formatarMinutos(reg.minutos);
           noReg.querySelector(".registro-item-excluir").addEventListener("click", async () => {
-            if (!confirm(`Excluir o lançamento do Dia ${reg.dia} de ${membro.nome}?`)) return;
+            const ok = await confirmarModal(`Excluir o lançamento do Dia ${reg.dia} de ${membro.nome}?`);
+            if (!ok) return;
             await deleteDoc(doc(db, "redes", redeLogada.id, "celulas", celula.id, "membros", membro.id, "registros", reg.id));
             await carregarAdmin();
+            toast("Lançamento excluído.");
           });
           listaRegistros.appendChild(noReg);
         });
@@ -355,6 +637,7 @@ async function carregarAdmin(){
 
 async function iniciar(){
   montarEscadaDias();
+  atualizarRotuloDiaLancamento();
   await verificarSeed();
   await carregarPainel();
   await popularSelectRedesLogin();
@@ -364,15 +647,17 @@ async function iniciar(){
 
   // Retoma sessão do discipulador, se ainda estiver marcada neste navegador
   const redeSalva = sessionStorage.getItem("redeLogadaId");
-  if (redeSalva){
+  if (redeSalva === ADMIN_VALOR_SELECT){
+    await entrarComoMestre();
+    const redeMestreSalva = sessionStorage.getItem("mestreRedeAtual");
+    if (redeMestreSalva){
+      document.getElementById("seletor-rede-mestre").value = redeMestreSalva;
+      await selecionarRedeNoMestre(redeMestreSalva);
+    }
+  } else if (redeSalva){
     const snap = await getDoc(doc(db, "redes", redeSalva));
     if (snap.exists()){
-      redeLogada = { id: redeSalva, ...snap.data() };
-      document.getElementById("login-box").classList.add("oculto");
-      document.getElementById("admin-box").classList.remove("oculto");
-      document.getElementById("admin-nome-rede").textContent = redeLogada.nome;
-      document.getElementById("admin-categoria").textContent = redeLogada.categoria;
-      await carregarAdmin();
+      await entrarComoRede(redeSalva, snap.data());
     }
   }
 }
