@@ -322,7 +322,7 @@ $("btn-seed").addEventListener("click", async () => {
   await carregarPainel();
   await popularSelectRedesLogin();
   btn.disabled = false;
-  btn.textContent = "Configurar as 6 redes iniciais";
+  btn.textContent = "Configurar as 8 redes iniciais";
   toast("Redes configuradas com sucesso.");
 });
 
@@ -465,7 +465,14 @@ async function carregarPainel(){
   const resumo = montarResumo(redes, escopoAtual);
   ultimoResumo = resumo;
 
-  const categorias = ["Jovens", "Adolescentes"];
+  // Ordem preferida: Jovens e Adolescentes primeiro, depois qualquer outra
+  // categoria (ex.: Adultos) na ordem em que aparecer nas redes cadastradas.
+  const ordemPreferida = ["Jovens", "Adolescentes"];
+  const categoriasExistentes = [...new Set(resumo.redes.map(r => r.categoria))];
+  const categorias = [
+    ...ordemPreferida.filter(c => categoriasExistentes.includes(c)),
+    ...categoriasExistentes.filter(c => !ordemPreferida.includes(c))
+  ];
   cont.innerHTML = "";
 
   for (const categoria of categorias){

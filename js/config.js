@@ -31,12 +31,14 @@ export const IGREJA_LOGO = "img/logo-videira.png";
 // pode trocar depois de entrar). "logo" é opcional: caminho de uma imagem
 // para aparecer ao lado do nome da rede no Painel e na Área do discipulador.
 export const REDES_PADRAO = [
-  { id: "tena",    nome: "Teená",   categoria: "Adolescentes", pin: "1111" },
-  { id: "ekballo", nome: "Ekballo", categoria: "Adolescentes", pin: "2222" },
-  { id: "lakad",   nome: "Lakad",   categoria: "Adolescentes", pin: "3333" },
-  { id: "sozo",    nome: "Sozo",    categoria: "Jovens",       pin: "4444", logo: "img/logo-sozo.png" },
-  { id: "zoe",     nome: "Zoe",     categoria: "Jovens",       pin: "5555" },
-  { id: "chosen",  nome: "Chosen",  categoria: "Jovens",       pin: "6666" }
+  { id: "tena",       nome: "Teená",      categoria: "Adolescentes", pin: "1111" },
+  { id: "ekballo",    nome: "Ekballo",    categoria: "Adolescentes", pin: "2222" },
+  { id: "lakad",      nome: "Lakad",      categoria: "Adolescentes", pin: "3333" },
+  { id: "sozo",       nome: "Sozo",       categoria: "Jovens",       pin: "4444", logo: "img/logo-sozo.png" },
+  { id: "zoe",        nome: "Zoe",        categoria: "Jovens",       pin: "5555" },
+  { id: "chosen",     nome: "Chosen",     categoria: "Jovens",       pin: "6666" },
+  { id: "agape",      nome: "Rede Ágape (Pr. Edson Pai)",     categoria: "Adultos", pin: "7777" },
+  { id: "saldaterra", nome: "Rede Sal da Terra (Ob. Josemar)", categoria: "Adultos", pin: "8888" }
 ];
 
 // PIN mestre: entra na Área do discipulador com acesso às 6 redes (troca

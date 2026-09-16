@@ -22,6 +22,8 @@
   --sobre-verde:  #FFFFFF;
   --azul:         #2C5F8A;
   --azul-claro:   #E4EDF5;
+  --roxo:         #6B3FA0;
+  --roxo-claro:   #EDE5F5;
   --erro:         #B33B23;
   --trilho:       #EAE7E0;
   --sombra:       0 6px 20px rgba(25,24,20,.10);
@@ -50,6 +52,8 @@ html[data-tema="escuro"]{
   --sobre-verde:  #06231B;
   --azul:         #79B6EA;
   --azul-claro:   #142A3B;
+  --roxo:         #B896E0;
+  --roxo-claro:   #2A2038;
   --erro:         #F08A6B;
   --trilho:       #1F2930;
   --sombra:       0 6px 22px rgba(0,0,0,.45);
@@ -327,6 +331,7 @@ main{ max-width: 760px; margin: 0 auto; padding: 1.5rem 1.25rem 4rem; }
 .comparativo-preenchimento{ height:100%; border-radius: 999px; transition: width .6s cubic-bezier(.2,.8,.2,1); }
 .comparativo-preenchimento.jovens{ background: var(--verde); }
 .comparativo-preenchimento.adolescentes{ background: var(--azul); }
+.comparativo-preenchimento.adultos{ background: var(--roxo); }
 .comparativo-valor{
   width: 96px; flex: 0 0 auto; text-align:right;
   font-size: 1.02rem; font-weight: 800;
@@ -370,6 +375,7 @@ main{ max-width: 760px; margin: 0 auto; padding: 1.5rem 1.25rem 4rem; }
 .categoria-titulo::after{ content:""; flex:1; height:1px; background: var(--borda); }
 .categoria-titulo.jovens{ color: var(--verde); }
 .categoria-titulo.adolescentes{ color: var(--azul); }
+.categoria-titulo.adultos{ color: var(--roxo); }
 
 .rede-bloco{
   background: var(--papel-2);
@@ -389,9 +395,11 @@ main{ max-width: 760px; margin: 0 auto; padding: 1.5rem 1.25rem 4rem; }
   color: var(--verde);
 }
 .rede-bloco.adolescentes .rede-total{ color: var(--azul); }
+.rede-bloco.adultos .rede-total{ color: var(--roxo); }
 .rede-barra{ height: 10px; border-radius: 999px; background: var(--trilho); overflow:hidden; }
 .rede-barra-preenchimento{ height:100%; border-radius: 999px; background: var(--verde); transition: width .6s cubic-bezier(.2,.8,.2,1); }
 .rede-bloco.adolescentes .rede-barra-preenchimento{ background: var(--azul); }
+.rede-bloco.adultos .rede-barra-preenchimento{ background: var(--roxo); }
 
 .rede-detalhe{ margin-top: .8rem; }
 .rede-detalhe > summary{
@@ -841,6 +849,7 @@ html[data-tema="escuro"] body.telao{
 }
 .telao-mini.jovens .valor{ color: var(--verde); }
 .telao-mini.adolescentes .valor{ color: var(--azul); }
+.telao-mini.adultos .valor{ color: var(--roxo); }
 
 .telao-coluna{
   min-height:0;
@@ -899,6 +908,7 @@ html[data-tema="escuro"] body.telao{
 .telao-trilho{ height: clamp(6px, 1.1vh, 11px); background: var(--trilho); border-radius:999px; overflow:hidden; }
 .telao-preenchimento{ height:100%; border-radius:999px; background: var(--verde); transition: width .7s cubic-bezier(.2,.8,.2,1); }
 .telao-preenchimento.adolescentes{ background: var(--azul); }
+.telao-preenchimento.adultos{ background: var(--roxo); }
 .telao-linha-valor{
   font-size: clamp(.95rem, 2.2vh, 1.7rem); font-weight:900;
   font-variant-numeric: tabular-nums; letter-spacing:-.035em;
