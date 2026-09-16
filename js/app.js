@@ -1,7 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
   getFirestore, collection, doc, setDoc, addDoc, getDocs, getDoc,
-  deleteDoc, updateDoc, serverTimestamp
+  deleteDoc, updateDoc, serverTimestamp, onSnapshot
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {
   firebaseConfig, JEJUM_INICIO, JEJUM_DIAS, JEJUM_TEMA, REDES_PADRAO,
@@ -10,6 +10,15 @@ import {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+
+// Documento "sinal": só é escrito quando alguém lança ou exclui horas.
+// O Painel escuta esse documento (onSnapshot) para saber a hora de se
+// atualizar sem precisar ficar consultando tudo o tempo todo.
+const metaAtividadeRef = doc(db, "meta", "atividade");
+async function sinalizarAtividade(){
+  try { await setDoc(metaAtividadeRef, { em: serverTimestamp() }); }
+  catch(e){ /* se falhar, o painel ainda atualiza pelo reforço de 1h */ }
+}
 
 const ADMIN_VALOR_SELECT = "__ADMIN__";
 const $ = (id) => document.getElementById(id);
@@ -995,6 +1004,7 @@ async function carregarAdmin(){
           collection(db, "redes", redeLogada.id, "celulas", celula.id, "membros", membro.id, "registros"),
           { dia, data: dataFromDia(dia), minutos: totalMin, criadoEm: serverTimestamp() }
         );
+        await sinalizarAtividade();
         await carregarAdmin();
         toast(`Lançado para ${membro.nome}: ${formatarMinutos(totalMin)} no Dia ${dia}.`);
       });
@@ -1043,6 +1053,7 @@ async function carregarAdmin(){
             if (!ok) return;
             abertosAdmin.add(celula.id);
             await deleteDoc(doc(db, "redes", redeLogada.id, "celulas", celula.id, "membros", membro.id, "registros", reg.id));
+            await sinalizarAtividade();
             await carregarAdmin();
             toast("Lançamento excluído.");
           });
@@ -1072,7 +1083,14 @@ async function iniciar(){
   await carregarPainel();
   await popularSelectRedesLogin();
 
-  autoRefreshTimer = setInterval(carregarPainel, 20000);
+  // Atualiza na hora quando alguém lança/exclui horas em qualquer
+  // dispositivo (via sinalizarAtividade), e a cada 1h como reforço.
+  let metaListenerPronto = false;
+  onSnapshot(metaAtividadeRef, () => {
+    if (metaListenerPronto) carregarPainel();
+    else metaListenerPronto = true;
+  });
+  autoRefreshTimer = setInterval(carregarPainel, 3600000);
 
   const redeSalva = sessionStorage.getItem("redeLogadaId");
   if (redeSalva === ADMIN_VALOR_SELECT){
