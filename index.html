@@ -5,10 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Relógio de Oração — Jejum 21 Dias</title>
 <link rel="icon" href="img/logo-videira.png">
-<meta name="theme-color" content="#15110D">
+<meta name="theme-color" content="#FBFAF7">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -25,7 +25,7 @@
   </div>
   <nav class="abas" id="abas">
     <button class="aba ativa" data-aba="painel">Painel</button>
-    <button class="aba" data-aba="discipulador">Área do discipulador</button>
+    <button class="aba" data-aba="discipulador">Lançar oração</button>
   </nav>
 </header>
 
@@ -39,12 +39,24 @@
       <button id="btn-seed" class="botao botao-principal">Configurar as 6 redes iniciais</button>
     </div>
 
-    <div class="controles-painel">
-      <div class="dias-escada" id="dias-escada" aria-label="Selecionar dia do jejum"></div>
-      <label class="chave-total">
-        <input type="checkbox" id="chk-total-jejum">
-        <span>Somar o jejum inteiro (dias 1–<span id="total-dias-label">21</span>)</span>
-      </label>
+    <div class="escopo">
+      <div class="escopo-dia" id="escopo-dia">
+        <button type="button" id="escopo-prev" class="escopo-seta" aria-label="Dia anterior">‹</button>
+        <div class="escopo-dia-texto">
+          <strong id="escopo-dia-num">Dia 1</strong>
+          <span id="escopo-dia-data">—</span>
+        </div>
+        <button type="button" id="escopo-next" class="escopo-seta" aria-label="Próximo dia">›</button>
+      </div>
+      <div class="escopo-modo" role="group" aria-label="O que mostrar">
+        <button type="button" class="escopo-op ativa" data-escopo="dia">Só esse dia</button>
+        <button type="button" class="escopo-op" data-escopo="todos">Jejum inteiro</button>
+      </div>
+    </div>
+
+    <div class="total-geral" id="total-geral">
+      <span class="total-geral-valor" id="total-geral-valor">0h 0min</span>
+      <span class="total-geral-rotulo" id="total-geral-rotulo">de oração no Dia 1</span>
     </div>
 
     <p class="atualizado-em">
@@ -57,11 +69,6 @@
     <div id="painel-conteudo" class="painel-conteudo">
       <div class="skeleton-bloco"></div>
       <div class="skeleton-bloco"></div>
-    </div>
-
-    <div class="total-geral" id="total-geral">
-      <span class="total-geral-rotulo">Total da rede de oração</span>
-      <span class="total-geral-valor" id="total-geral-valor">0h 0min</span>
     </div>
 
   </section>
@@ -124,7 +131,7 @@
       </details>
 
       <div class="dia-lancamento" id="dia-lancamento">
-        <span class="dia-lancamento-rotulo">Lançando tempo de oração para</span>
+        <span class="dia-lancamento-rotulo">Você está lançando no</span>
         <div class="dia-lancamento-controle">
           <button type="button" id="dia-lanc-prev" class="dia-lanc-seta" aria-label="Dia anterior">‹</button>
           <div class="dia-lanc-atual">
@@ -172,7 +179,7 @@
     <form class="form-registro">
       <input type="number" class="registro-horas" min="0" placeholder="h" inputmode="numeric">
       <input type="number" class="registro-minutos" min="0" max="59" placeholder="min" inputmode="numeric">
-      <button type="submit" class="botao botao-pequeno">Lançar no dia selecionado</button>
+      <button type="submit" class="botao botao-pequeno">Lançar</button>
     </form>
     <ul class="lista-registros"></ul>
   </div>

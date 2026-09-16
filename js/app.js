@@ -141,7 +141,6 @@ document.getElementById("abas").addEventListener("click", (e) => {
 // ===================== CABEÇALHO =====================
 
 document.getElementById("jejum-tema").textContent = `Jejum de ${JEJUM_DIAS} dias — ${JEJUM_TEMA}`;
-document.getElementById("total-dias-label").textContent = JEJUM_DIAS;
 document.getElementById("logo-igreja").alt = IGREJA_NOME;
 document.getElementById("logo-igreja").src = IGREJA_LOGO;
 
@@ -200,29 +199,42 @@ document.getElementById("btn-seed").addEventListener("click", async () => {
   toast("Redes configuradas com sucesso.");
 });
 
-// ===================== ESCADA DE DIAS (painel) =====================
+// ===================== SELETOR DE DIA (painel) =====================
+// Em vez de 21 botõezinhos lado a lado (que viravam um borrão na tela),
+// um único dia por vez, com setas, e um botão para ver o jejum inteiro.
 
-function montarEscadaDias(){
-  const wrap = document.getElementById("dias-escada");
-  wrap.innerHTML = "";
-  for (let d = 1; d <= JEJUM_DIAS; d++){
-    const b = document.createElement("button");
-    b.className = "dia-degrau" + (d === escopoAtual ? " ativo" : "");
-    b.innerHTML = `<strong>Dia ${d}</strong>${dataFromDia(d)}`;
-    b.addEventListener("click", () => {
-      escopoAtual = d;
-      document.getElementById("chk-total-jejum").checked = false;
-      montarEscadaDias();
-      carregarPainel();
-    });
-    wrap.appendChild(b);
-  }
+let diaPainel = diaAtualEstimado();
+
+function atualizarEscopo(){
+  const vendoTudo = escopoAtual === "todos";
+  document.getElementById("escopo-dia").classList.toggle("desativado", vendoTudo);
+  document.getElementById("escopo-dia-num").textContent = `Dia ${diaPainel}`;
+  document.getElementById("escopo-dia-data").textContent = dataFromDia(diaPainel);
+  document.getElementById("escopo-prev").disabled = vendoTudo || diaPainel <= 1;
+  document.getElementById("escopo-next").disabled = vendoTudo || diaPainel >= JEJUM_DIAS;
+  document.querySelectorAll(".escopo-op").forEach(b => {
+    b.classList.toggle("ativa", (b.dataset.escopo === "todos") === vendoTudo);
+  });
+  document.getElementById("total-geral-rotulo").textContent =
+    vendoTudo ? `de oração nos ${JEJUM_DIAS} dias` : `de oração no Dia ${diaPainel}`;
 }
 
-document.getElementById("chk-total-jejum").addEventListener("change", (e) => {
-  escopoAtual = e.target.checked ? "todos" : diaAtualEstimado();
-  montarEscadaDias();
+function irParaDia(d){
+  diaPainel = Math.min(JEJUM_DIAS, Math.max(1, d));
+  escopoAtual = diaPainel;
+  atualizarEscopo();
   carregarPainel();
+}
+
+document.getElementById("escopo-prev").addEventListener("click", () => irParaDia(diaPainel - 1));
+document.getElementById("escopo-next").addEventListener("click", () => irParaDia(diaPainel + 1));
+
+document.querySelectorAll(".escopo-op").forEach(btn => {
+  btn.addEventListener("click", () => {
+    escopoAtual = btn.dataset.escopo === "todos" ? "todos" : diaPainel;
+    atualizarEscopo();
+    carregarPainel();
+  });
 });
 
 document.getElementById("btn-atualizar").addEventListener("click", carregarPainel);
@@ -256,7 +268,7 @@ async function carregarPainel(){
     for (const rede of redesCategoria){
       let totalRede = 0;
       const redeBloco = document.createElement("div");
-      redeBloco.className = "rede-bloco";
+      redeBloco.className = `rede-bloco ${categoria.toLowerCase()}`;
 
       const celulasHtml = rede.celulas.map(celula => {
         let totalCelula = 0;
@@ -279,13 +291,18 @@ async function carregarPainel(){
       const logo = logoDaRede(rede.id);
       const logoHtml = logo ? `<img class="rede-logo" src="${logo}" alt="${rede.nome}">` : "";
 
+      const qtdMembros = rede.celulas.reduce((acc, c) => acc + c.membros.length, 0);
+
       redeBloco.innerHTML = `
         <div class="rede-cabecalho">
           <span class="rede-nome-grupo">${logoHtml}<span class="rede-nome">${rede.nome}</span></span>
           <span class="rede-total">${formatarMinutos(totalRede)}</span>
         </div>
         <div class="rede-barra"><div class="rede-barra-preenchimento" style="width:0%" data-alvo=""></div></div>
-        ${celulasHtml || '<p class="membro-item zerado">Nenhuma célula cadastrada ainda.</p>'}
+        <details class="rede-detalhe">
+          <summary>${qtdMembros ? `Ver quem orou (${qtdMembros})` : "Nenhum membro cadastrado"}</summary>
+          ${celulasHtml || '<p class="membro-item zerado">Nenhuma célula cadastrada ainda.</p>'}
+        </details>
       `;
       redeBloco.dataset.totalRede = totalRede;
       blocoCategoria.appendChild(redeBloco);
@@ -636,7 +653,7 @@ async function carregarAdmin(){
 // ===================== INICIALIZAÇÃO =====================
 
 async function iniciar(){
-  montarEscadaDias();
+  atualizarEscopo();
   atualizarRotuloDiaLancamento();
   await verificarSeed();
   await carregarPainel();
