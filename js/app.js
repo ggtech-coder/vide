@@ -12,15 +12,21 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 const ADMIN_VALOR_SELECT = "__ADMIN__";
+const $ = (id) => document.getElementById(id);
 
 // ===================== UTIL =====================
 
 function pad(n){ return String(n).padStart(2, "0"); }
 
-function dataFromDia(diaNumero){
+function dataDoDia(diaNumero){
   const inicio = new Date(JEJUM_INICIO + "T00:00:00");
   const d = new Date(inicio);
   d.setDate(d.getDate() + (diaNumero - 1));
+  return d;
+}
+
+function dataFromDia(diaNumero){
+  const d = dataDoDia(diaNumero);
   return `${pad(d.getDate())}/${pad(d.getMonth()+1)}`;
 }
 
@@ -54,9 +60,14 @@ function logoDaRede(redeId){
   return r && r.logo ? r.logo : null;
 }
 
+function escapar(txt){
+  return String(txt ?? "").replace(/[&<>"']/g, c => (
+    { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]
+  ));
+}
+
 const reduzMovimento = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-// Anima um número (em minutos) dentro de um elemento, formatando com formatarMinutos.
 function animarValor(el, deValor, paraValor){
   if (reduzMovimento || deValor === paraValor){
     el.textContent = formatarMinutos(paraValor);
@@ -67,17 +78,124 @@ function animarValor(el, deValor, paraValor){
   function passo(agora){
     const t = Math.min(1, (agora - inicioT) / duracao);
     const suavizado = 1 - Math.pow(1 - t, 3);
-    const atual = Math.round(deValor + (paraValor - deValor) * suavizado);
-    el.textContent = formatarMinutos(atual);
+    el.textContent = formatarMinutos(Math.round(deValor + (paraValor - deValor) * suavizado));
     if (t < 1) requestAnimationFrame(passo);
   }
   requestAnimationFrame(passo);
 }
 
+// =====================================================================
+// TEMA CLARO / ESCURO  +  CÉU NOTURNO
+// Três estados: automático (escurece das 18h às 6h), claro e escuro.
+// A preferência fica salva no navegador.
+// =====================================================================
+
+const TEMA_ORDEM = ["auto", "claro", "escuro"];
+const TEMA_ICONE = { auto: "🌗", claro: "☀️", escuro: "🌙" };
+const TEMA_NOME  = { auto: "Tema automático (muda sozinho à noite)", claro: "Tema claro", escuro: "Tema escuro" };
+
+let temaPref = "auto";
+let ceuMontado = false;
+let meteoroTimer = null;
+
+function lerTemaPref(){
+  try { return localStorage.getItem("tema-pref") || "auto"; } catch(e){ return "auto"; }
+}
+function salvarTemaPref(v){
+  try { localStorage.setItem("tema-pref", v); } catch(e){}
+}
+
+function ehNoite(){
+  const h = new Date().getHours();
+  return h >= 18 || h < 6;
+}
+
+function temaResolvido(){
+  if (temaPref === "claro") return "claro";
+  if (temaPref === "escuro") return "escuro";
+  return ehNoite() ? "escuro" : "claro";
+}
+
+function aplicarTema(){
+  const tema = temaResolvido();
+  document.documentElement.setAttribute("data-tema", tema);
+  const meta = $("meta-theme-color");
+  if (meta) meta.setAttribute("content", tema === "escuro" ? "#0E1317" : "#FBFAF7");
+
+  const btn = $("btn-tema");
+  btn.textContent = TEMA_ICONE[temaPref];
+  btn.title = TEMA_NOME[temaPref];
+  btn.setAttribute("aria-label", TEMA_NOME[temaPref]);
+
+  if (tema === "escuro"){
+    montarCeu();
+    iniciarMeteoros();
+  } else {
+    pararMeteoros();
+  }
+}
+
+function montarCeu(){
+  if (ceuMontado) return;
+  ceuMontado = true;
+  const ceu = $("ceu");
+  const frag = document.createDocumentFragment();
+
+  const lua = document.createElement("div");
+  lua.className = "lua";
+  frag.appendChild(lua);
+
+  const qtd = window.innerWidth < 600 ? 45 : 90;
+  for (let i = 0; i < qtd; i++){
+    const e = document.createElement("span");
+    e.className = "estrela";
+    const tam = Math.random() < .82 ? (1 + Math.random() * 1.4) : (2.2 + Math.random() * 1.3);
+    e.style.width = `${tam.toFixed(2)}px`;
+    e.style.height = e.style.width;
+    e.style.left = `${(Math.random() * 100).toFixed(2)}%`;
+    e.style.top = `${(Math.random() * 100).toFixed(2)}%`;
+    e.style.setProperty("--dur", `${(2.5 + Math.random() * 4).toFixed(2)}s`);
+    e.style.setProperty("--atraso", `${(Math.random() * 5).toFixed(2)}s`);
+    frag.appendChild(e);
+  }
+  ceu.appendChild(frag);
+}
+
+function iniciarMeteoros(){
+  if (meteoroTimer || reduzMovimento) return;
+  meteoroTimer = setInterval(() => {
+    if (document.documentElement.getAttribute("data-tema") !== "escuro") return;
+    if (document.hidden) return;
+    const m = document.createElement("div");
+    m.className = "meteoro";
+    m.style.left = `${5 + Math.random() * 55}%`;
+    m.style.top = `${5 + Math.random() * 40}%`;
+    $("ceu").appendChild(m);
+    setTimeout(() => m.remove(), 1700);
+  }, 16000);
+}
+function pararMeteoros(){
+  if (meteoroTimer){ clearInterval(meteoroTimer); meteoroTimer = null; }
+}
+
+$("btn-tema").addEventListener("click", () => {
+  temaPref = TEMA_ORDEM[(TEMA_ORDEM.indexOf(temaPref) + 1) % TEMA_ORDEM.length];
+  salvarTemaPref(temaPref);
+  aplicarTema();
+  const tema = temaResolvido();
+  toast(temaPref === "auto"
+    ? `Tema automático — agora está ${tema === "escuro" ? "escuro" : "claro"}.`
+    : `Tema ${temaPref} fixado.`);
+});
+
+// No modo automático, reavalia de minuto em minuto — quando dá 18h o site
+// escurece sozinho e aparecem a lua e as estrelas.
+setInterval(() => { if (temaPref === "auto") aplicarTema(); }, 60000);
+
 // ===================== TOASTS =====================
 
 function toast(mensagem, tipo = "ok"){
-  const cont = document.getElementById("toast-container");
+  const cont = $("toast-container");
   const el = document.createElement("div");
   el.className = "toast" + (tipo === "erro" ? " erro-toast" : "");
   el.textContent = mensagem;
@@ -92,10 +210,10 @@ function toast(mensagem, tipo = "ok"){
 
 function confirmarModal(texto, textoBotao = "Excluir"){
   return new Promise((resolve) => {
-    const modal = document.getElementById("modal-confirmar");
-    document.getElementById("modal-confirmar-texto").textContent = texto;
-    const btnOk = document.getElementById("modal-confirmar-ok");
-    const btnCancelar = document.getElementById("modal-cancelar");
+    const modal = $("modal-confirmar");
+    $("modal-confirmar-texto").textContent = texto;
+    const btnOk = $("modal-confirmar-ok");
+    const btnCancelar = $("modal-cancelar");
     btnOk.textContent = textoBotao;
     modal.classList.remove("oculto");
 
@@ -118,54 +236,55 @@ function confirmarModal(texto, textoBotao = "Excluir"){
 
 // ===================== ESTADO =====================
 
-let escopoAtual = diaAtualEstimado(); // número do dia, ou "todos"
-let redeLogada = null; // { id, nome, categoria }
-let modoMestre = false; // true quando logado com o PIN administrador
-let redesCache = []; // últimas redes conhecidas (para o seletor mestre)
-let diaLancamento = diaAtualEstimado(); // dia usado ao lançar tempo de oração
+let escopoAtual = diaAtualEstimado();
+let diaPainel = diaAtualEstimado();
+let redeLogada = null;
+let modoMestre = false;
+let redesCache = [];
+let diaLancamento = diaAtualEstimado();
 let ultimoTotalGeral = 0;
 let autoRefreshTimer = null;
 let primeiraCargaPainel = true;
+let ultimoResumo = null;
+
+// Quais blocos estão abertos no painel (para não fechar sozinho ao atualizar)
+const abertosPainel = new Set();
+// Quais células estão abertas na área do discipulador
+const abertosAdmin = new Set();
 
 // ===================== NAVEGAÇÃO ENTRE ABAS =====================
 
-document.getElementById("abas").addEventListener("click", (e) => {
+$("abas").addEventListener("click", (e) => {
   const btn = e.target.closest(".aba");
   if (!btn) return;
   document.querySelectorAll(".aba").forEach(a => a.classList.remove("ativa"));
   document.querySelectorAll(".tab").forEach(t => t.classList.remove("ativo"));
   btn.classList.add("ativa");
-  document.getElementById(`tab-${btn.dataset.aba}`).classList.add("ativo");
+  $(`tab-${btn.dataset.aba}`).classList.add("ativo");
 });
 
 // ===================== CABEÇALHO =====================
 
-document.getElementById("jejum-tema").textContent = `Jejum de ${JEJUM_DIAS} dias — ${JEJUM_TEMA}`;
-document.getElementById("logo-igreja").alt = IGREJA_NOME;
-document.getElementById("logo-igreja").src = IGREJA_LOGO;
+$("jejum-tema").textContent = `Jejum de ${JEJUM_DIAS} dias — ${JEJUM_TEMA}`;
+$("logo-igreja").alt = IGREJA_NOME;
+$("logo-igreja").src = IGREJA_LOGO;
+$("telao-logo").src = IGREJA_LOGO;
+$("telao-logo").alt = IGREJA_NOME;
+$("telao-tema").textContent = `Jejum de ${JEJUM_DIAS} dias — ${JEJUM_TEMA}`;
 
 // ===================== BUSCA DE DADOS =====================
 
 async function buscarTodasRedes(){
   const redesSnap = await getDocs(collection(db, "redes"));
-  const redes = await Promise.all(redesSnap.docs.map(async (redeDoc) => {
-    const celulasSnap = await getDocs(collection(db, "redes", redeDoc.id, "celulas"));
-    const celulas = await Promise.all(celulasSnap.docs.map(async (celDoc) => {
-      const membrosSnap = await getDocs(collection(db, "redes", redeDoc.id, "celulas", celDoc.id, "membros"));
-      const membros = await Promise.all(membrosSnap.docs.map(async (memDoc) => {
-        const regSnap = await getDocs(collection(db, "redes", redeDoc.id, "celulas", celDoc.id, "membros", memDoc.id, "registros"));
-        return { id: memDoc.id, ...memDoc.data(), registros: regSnap.docs.map(d => ({ id: d.id, ...d.data() })) };
-      }));
-      return { id: celDoc.id, ...celDoc.data(), membros };
-    }));
+  return Promise.all(redesSnap.docs.map(async (redeDoc) => {
+    const celulas = await buscarUmaRede(redeDoc.id);
     return { id: redeDoc.id, ...redeDoc.data(), celulas };
   }));
-  return redes;
 }
 
 async function buscarUmaRede(redeId){
   const celulasSnap = await getDocs(collection(db, "redes", redeId, "celulas"));
-  const celulas = await Promise.all(celulasSnap.docs.map(async (celDoc) => {
+  return Promise.all(celulasSnap.docs.map(async (celDoc) => {
     const membrosSnap = await getDocs(collection(db, "redes", redeId, "celulas", celDoc.id, "membros"));
     const membros = await Promise.all(membrosSnap.docs.map(async (memDoc) => {
       const regSnap = await getDocs(collection(db, "redes", redeId, "celulas", celDoc.id, "membros", memDoc.id, "registros"));
@@ -173,18 +292,17 @@ async function buscarUmaRede(redeId){
     }));
     return { id: celDoc.id, ...celDoc.data(), membros };
   }));
-  return celulas;
 }
 
-// ===================== SEED (configuração inicial das 6 redes) =====================
+// ===================== SEED =====================
 
 async function verificarSeed(){
   const redesSnap = await getDocs(collection(db, "redes"));
-  document.getElementById("seed-aviso").classList.toggle("oculto", !redesSnap.empty);
+  $("seed-aviso").classList.toggle("oculto", !redesSnap.empty);
 }
 
-document.getElementById("btn-seed").addEventListener("click", async () => {
-  const btn = document.getElementById("btn-seed");
+$("btn-seed").addEventListener("click", async () => {
+  const btn = $("btn-seed");
   btn.disabled = true;
   btn.textContent = "Configurando…";
   for (const r of REDES_PADRAO){
@@ -200,22 +318,18 @@ document.getElementById("btn-seed").addEventListener("click", async () => {
 });
 
 // ===================== SELETOR DE DIA (painel) =====================
-// Em vez de 21 botõezinhos lado a lado (que viravam um borrão na tela),
-// um único dia por vez, com setas, e um botão para ver o jejum inteiro.
-
-let diaPainel = diaAtualEstimado();
 
 function atualizarEscopo(){
   const vendoTudo = escopoAtual === "todos";
-  document.getElementById("escopo-dia").classList.toggle("desativado", vendoTudo);
-  document.getElementById("escopo-dia-num").textContent = `Dia ${diaPainel}`;
-  document.getElementById("escopo-dia-data").textContent = dataFromDia(diaPainel);
-  document.getElementById("escopo-prev").disabled = vendoTudo || diaPainel <= 1;
-  document.getElementById("escopo-next").disabled = vendoTudo || diaPainel >= JEJUM_DIAS;
+  $("escopo-dia").classList.toggle("desativado", vendoTudo);
+  $("escopo-dia-num").textContent = `Dia ${diaPainel}`;
+  $("escopo-dia-data").textContent = dataFromDia(diaPainel);
+  $("escopo-prev").disabled = vendoTudo || diaPainel <= 1;
+  $("escopo-next").disabled = vendoTudo || diaPainel >= JEJUM_DIAS;
   document.querySelectorAll(".escopo-op").forEach(b => {
     b.classList.toggle("ativa", (b.dataset.escopo === "todos") === vendoTudo);
   });
-  document.getElementById("total-geral-rotulo").textContent =
+  $("total-geral-rotulo").textContent =
     vendoTudo ? `de oração nos ${JEJUM_DIAS} dias` : `de oração no Dia ${diaPainel}`;
 }
 
@@ -226,8 +340,8 @@ function irParaDia(d){
   carregarPainel();
 }
 
-document.getElementById("escopo-prev").addEventListener("click", () => irParaDia(diaPainel - 1));
-document.getElementById("escopo-next").addEventListener("click", () => irParaDia(diaPainel + 1));
+$("escopo-prev").addEventListener("click", () => irParaDia(diaPainel - 1));
+$("escopo-next").addEventListener("click", () => irParaDia(diaPainel + 1));
 
 document.querySelectorAll(".escopo-op").forEach(btn => {
   btn.addEventListener("click", () => {
@@ -237,24 +351,23 @@ document.querySelectorAll(".escopo-op").forEach(btn => {
   });
 });
 
-// Setas do teclado navegam os dias (útil no telão, com o controle remoto
-// de apresentação, que costuma mandar seta esquerda/direita).
 document.addEventListener("keydown", (e) => {
   const digitando = ["INPUT", "SELECT", "TEXTAREA"].includes(document.activeElement?.tagName);
   if (digitando) return;
-  if (!document.getElementById("tab-painel").classList.contains("ativo")) return;
+  const noTelao = document.body.classList.contains("telao");
+  if (!noTelao && !$("tab-painel").classList.contains("ativo")) return;
   if (e.key === "ArrowLeft" && escopoAtual !== "todos") irParaDia(diaPainel - 1);
   if (e.key === "ArrowRight" && escopoAtual !== "todos") irParaDia(diaPainel + 1);
   if (e.key.toLowerCase() === "t") alternarTelao();
+  // Em tela cheia o próprio navegador trata o Esc (e o fullscreenchange
+  // já desliga o telão); aqui só cobre o caso de não estar em tela cheia.
+  if (e.key === "Escape" && noTelao && !document.fullscreenElement) alternarTelao();
 });
 
 // ===================== GRÁFICO DOS 21 DIAS =====================
-// Cada barra é o total orado naquele dia. Clicar numa barra troca o dia
-// mostrado no painel — dá pra ver o jejum inteiro de relance e navegar
-// pelo mesmo gesto.
 
 function montarGraficoJejum(totaisPorDia){
-  const wrap = document.getElementById("grafico-jejum");
+  const wrap = $("grafico-jejum");
   const maior = Math.max(1, ...totaisPorDia);
   const hoje = diaAtualEstimado();
   wrap.innerHTML = "";
@@ -279,82 +392,133 @@ function montarGraficoJejum(totaisPorDia){
   }
 }
 
-document.getElementById("btn-atualizar").addEventListener("click", carregarPainel);
+$("btn-atualizar").addEventListener("click", carregarPainel);
+
+// =====================================================================
+// RESUMO — calcula uma vez e alimenta o painel e o telão
+// =====================================================================
+
+function montarResumo(redes, escopo){
+  const resumo = {
+    totalGeral: 0,
+    porCategoria: {},
+    redes: [],
+    celulas: [],
+    totaisPorDia: new Array(JEJUM_DIAS).fill(0)
+  };
+
+  redes.forEach(rede => {
+    let totalRede = 0;
+    const celulas = (rede.celulas || []).map(celula => {
+      let totalCelula = 0;
+      const membros = (celula.membros || []).map(m => {
+        const min = somaRegistros(m.registros || [], escopo);
+        totalCelula += min;
+        (m.registros || []).forEach(r => {
+          if (r.dia >= 1 && r.dia <= JEJUM_DIAS) resumo.totaisPorDia[r.dia - 1] += (r.minutos || 0);
+        });
+        return { id: m.id, nome: m.nome, minutos: min };
+      }).sort((a, b) => b.minutos - a.minutos || String(a.nome).localeCompare(String(b.nome)));
+
+      totalRede += totalCelula;
+      const item = {
+        id: celula.id, nome: celula.nome, total: totalCelula,
+        membros, redeNome: rede.nome, redeId: rede.id, categoria: rede.categoria
+      };
+      resumo.celulas.push(item);
+      return item;
+    }).sort((a, b) => b.total - a.total || String(a.nome).localeCompare(String(b.nome)));
+
+    resumo.totalGeral += totalRede;
+    resumo.porCategoria[rede.categoria] = (resumo.porCategoria[rede.categoria] || 0) + totalRede;
+    resumo.redes.push({
+      id: rede.id, nome: rede.nome, categoria: rede.categoria,
+      total: totalRede, celulas,
+      qtdMembros: (rede.celulas || []).reduce((acc, c) => acc + (c.membros || []).length, 0)
+    });
+  });
+
+  resumo.redes.sort((a, b) => b.total - a.total || String(a.nome).localeCompare(String(b.nome)));
+  resumo.celulas.sort((a, b) => b.total - a.total || String(a.nome).localeCompare(String(b.nome)));
+  return resumo;
+}
 
 // ===================== RENDER: PAINEL GERAL =====================
 
 async function carregarPainel(){
-  const cont = document.getElementById("painel-conteudo");
+  const cont = $("painel-conteudo");
   if (primeiraCargaPainel){
     cont.innerHTML = `<div class="skeleton-bloco"></div><div class="skeleton-bloco"></div>`;
   }
 
   const redes = await buscarTodasRedes();
   redesCache = redes;
+  const resumo = montarResumo(redes, escopoAtual);
+  ultimoResumo = resumo;
 
   const categorias = ["Jovens", "Adolescentes"];
   cont.innerHTML = "";
-  let totalGeral = 0;
-  const totalPorCategoria = {};
 
   for (const categoria of categorias){
-    const redesCategoria = redes.filter(r => r.categoria === categoria);
+    const redesCategoria = resumo.redes.filter(r => r.categoria === categoria);
     if (redesCategoria.length === 0) continue;
 
     const blocoCategoria = document.createElement("div");
     blocoCategoria.className = "categoria-bloco";
     blocoCategoria.innerHTML = `<h2 class="categoria-titulo ${categoria.toLowerCase()}">${categoria}</h2>`;
 
-    let totalCategoria = 0;
-
     for (const rede of redesCategoria){
-      let totalRede = 0;
       const redeBloco = document.createElement("div");
       redeBloco.className = `rede-bloco ${categoria.toLowerCase()}`;
 
       const celulasHtml = rede.celulas.map(celula => {
-        let totalCelula = 0;
-        const membrosHtml = celula.membros.map(m => {
-          const min = somaRegistros(m.registros, escopoAtual);
-          totalCelula += min;
-          return `<span class="membro-item${min === 0 ? " zerado" : ""}"><span>${m.nome}</span><span class="valor">${formatarMinutos(min)}</span></span>`;
-        }).join("");
-        totalRede += totalCelula;
+        const chaveCel = `cel:${rede.id}:${celula.id}`;
+        const membrosHtml = celula.membros.map(m => `
+          <span class="membro-item${m.minutos === 0 ? " zerado" : " destaque"}">
+            <span>${escapar(m.nome)}</span>
+            <span class="valor">${formatarMinutos(m.minutos)}</span>
+          </span>`).join("");
         return `
-          <div class="celula-linha">
-            <div class="celula-cabecalho"><span>${celula.nome}</span><span>${formatarMinutos(totalCelula)}</span></div>
+          <details class="celula-detalhe" data-chave="${chaveCel}" ${abertosPainel.has(chaveCel) ? "open" : ""}>
+            <summary>
+              <span class="celula-seta" aria-hidden="true"></span>
+              <span class="celula-nome-painel">${escapar(celula.nome)}</span>
+              <span class="celula-qtd">${celula.membros.length}</span>
+              <span class="celula-total-painel">${formatarMinutos(celula.total)}</span>
+            </summary>
             <div class="membros-grade">${membrosHtml || '<span class="membro-item zerado">Nenhum membro cadastrado</span>'}</div>
-          </div>`;
+          </details>`;
       }).join("");
 
-      totalGeral += totalRede;
-      totalCategoria += totalRede;
-
       const logo = logoDaRede(rede.id);
-      const logoHtml = logo ? `<img class="rede-logo" src="${logo}" alt="${rede.nome}">` : "";
-
-      const qtdMembros = rede.celulas.reduce((acc, c) => acc + c.membros.length, 0);
+      const logoHtml = logo ? `<img class="rede-logo" src="${logo}" alt="${escapar(rede.nome)}">` : "";
+      const chaveRede = `rede:${rede.id}`;
 
       redeBloco.innerHTML = `
         <div class="rede-cabecalho">
-          <span class="rede-nome-grupo">${logoHtml}<span class="rede-nome">${rede.nome}</span></span>
-          <span class="rede-total">${formatarMinutos(totalRede)}</span>
+          <span class="rede-nome-grupo">${logoHtml}<span class="rede-nome">${escapar(rede.nome)}</span></span>
+          <span class="rede-total num">${formatarMinutos(rede.total)}</span>
         </div>
-        <div class="rede-barra"><div class="rede-barra-preenchimento" style="width:0%" data-alvo=""></div></div>
-        <details class="rede-detalhe">
-          <summary>${qtdMembros ? `Ver quem orou (${qtdMembros})` : "Nenhum membro cadastrado"}</summary>
+        <div class="rede-barra"><div class="rede-barra-preenchimento" style="width:0%"></div></div>
+        <details class="rede-detalhe" data-chave="${chaveRede}" ${abertosPainel.has(chaveRede) ? "open" : ""}>
+          <summary>${rede.qtdMembros ? `Células e membros (${rede.qtdMembros})` : "Nenhum membro cadastrado"}</summary>
           ${celulasHtml || '<p class="membro-item zerado">Nenhuma célula cadastrada ainda.</p>'}
         </details>
       `;
-      redeBloco.dataset.totalRede = totalRede;
+      redeBloco.dataset.totalRede = rede.total;
       blocoCategoria.appendChild(redeBloco);
     }
-    totalPorCategoria[categoria] = totalCategoria;
     cont.appendChild(blocoCategoria);
   }
 
-  // Preenche as barrinhas de cada rede proporcional ao maior total do painel,
-  // depois que todos os totais já foram calculados.
+  // Lembra quais blocos o usuário abriu/fechou
+  cont.querySelectorAll("details[data-chave]").forEach(d => {
+    d.addEventListener("toggle", () => {
+      if (d.open) abertosPainel.add(d.dataset.chave);
+      else abertosPainel.delete(d.dataset.chave);
+    });
+  });
+
   const maiorTotalRede = Math.max(1, ...Array.from(cont.querySelectorAll(".rede-bloco")).map(b => Number(b.dataset.totalRede)));
   cont.querySelectorAll(".rede-bloco").forEach(bloco => {
     const total = Number(bloco.dataset.totalRede);
@@ -362,72 +526,188 @@ async function carregarPainel(){
     requestAnimationFrame(() => { barra.style.width = `${Math.round((total / maiorTotalRede) * 100)}%`; });
   });
 
-  montarComparativoCategorias(totalPorCategoria);
+  montarComparativoCategorias(resumo.porCategoria);
+  montarGraficoJejum(resumo.totaisPorDia);
 
-  // Total de cada um dos dias do jejum, para o gráfico
-  const totaisPorDia = new Array(JEJUM_DIAS).fill(0);
-  redes.forEach(rede => rede.celulas.forEach(cel => cel.membros.forEach(m =>
-    m.registros.forEach(r => {
-      if (r.dia >= 1 && r.dia <= JEJUM_DIAS) totaisPorDia[r.dia - 1] += (r.minutos || 0);
-    })
-  )));
-  montarGraficoJejum(totaisPorDia);
-
-  const elTotalGeral = document.getElementById("total-geral-valor");
-  animarValor(elTotalGeral, primeiraCargaPainel ? totalGeral : ultimoTotalGeral, totalGeral);
-  ultimoTotalGeral = totalGeral;
+  animarValor($("total-geral-valor"), primeiraCargaPainel ? resumo.totalGeral : ultimoTotalGeral, resumo.totalGeral);
+  ultimoTotalGeral = resumo.totalGeral;
   primeiraCargaPainel = false;
 
-  document.getElementById("hora-atualizacao").textContent =
-    new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  const agora = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  $("hora-atualizacao").textContent = agora;
+  $("telao-atualizado").textContent = `Atualizado às ${agora}`;
+
+  renderizarTelao();
 }
 
 function montarComparativoCategorias(totalPorCategoria){
-  const wrap = document.getElementById("comparativo-categorias");
-  const entradas = Object.entries(totalPorCategoria).filter(([, v]) => v !== undefined);
-  if (entradas.length < 2){
-    wrap.classList.add("oculto");
-    return;
-  }
+  const wrap = $("comparativo-categorias");
+  const entradas = Object.entries(totalPorCategoria);
+  if (entradas.length < 2){ wrap.classList.add("oculto"); return; }
   wrap.classList.remove("oculto");
   const maior = Math.max(1, ...entradas.map(([, v]) => v));
   wrap.innerHTML = entradas.map(([nome, valor]) => `
     <div class="comparativo-linha">
-      <span class="comparativo-nome">${nome}</span>
+      <span class="comparativo-nome">${escapar(nome)}</span>
       <div class="comparativo-trilho"><div class="comparativo-preenchimento ${nome.toLowerCase()}" style="width:${Math.round((valor / maior) * 100)}%"></div></div>
       <span class="comparativo-valor">${formatarMinutos(valor)}</span>
     </div>
   `).join("");
 }
 
-// ===================== MODO TELÃO =====================
-// Para projetar durante o culto: esconde os controles de edição, aumenta
-// tudo e entra em tela cheia. Sai com Esc ou apertando T de novo.
+// ===================== EXPANDIR / RECOLHER TUDO =====================
+
+$("btn-expandir-tudo").addEventListener("click", () => {
+  document.querySelectorAll("#painel-conteudo details[data-chave]").forEach(d => {
+    d.open = true;
+    abertosPainel.add(d.dataset.chave);
+  });
+});
+$("btn-recolher-tudo").addEventListener("click", () => {
+  document.querySelectorAll("#painel-conteudo details[data-chave]").forEach(d => {
+    d.open = false;
+    abertosPainel.delete(d.dataset.chave);
+  });
+});
+
+// =====================================================================
+// MODO TELÃO — dashboard de projeção
+// Mostra, ao mesmo tempo: total geral, Jovens x Adolescentes, ranking das
+// redes, ranking das células (paginado quando há muitas) e a linha dos
+// 21 dias no rodapé.
+// =====================================================================
+
+const CELULAS_POR_PAGINA = 6;
+let paginaCelulas = 0;
+let telaoRotacaoTimer = null;
+let telaoRelogioTimer = null;
+
+function renderizarTelao(){
+  if (!ultimoResumo) return;
+  const r = ultimoResumo;
+
+  $("telao-dia").textContent = escopoAtual === "todos" ? `1–${JEJUM_DIAS}` : `${diaPainel} / ${JEJUM_DIAS}`;
+  $("telao-hero-rotulo").textContent = escopoAtual === "todos"
+    ? `Total de oração — jejum inteiro`
+    : `Total de oração — Dia ${diaPainel} (${dataFromDia(diaPainel)})`;
+  $("telao-hero-valor").textContent = formatarMinutos(r.totalGeral);
+
+  // Jovens x Adolescentes no topo
+  const lado = $("telao-hero-lado");
+  lado.innerHTML = Object.entries(r.porCategoria).map(([nome, valor]) => `
+    <div class="telao-mini ${nome.toLowerCase()}">
+      <span class="rotulo">${escapar(nome)}</span>
+      <span class="valor">${formatarMinutos(valor)}</span>
+    </div>`).join("");
+
+  // Ranking das redes
+  const maiorRede = Math.max(1, ...r.redes.map(x => x.total));
+  $("telao-redes").innerHTML = r.redes.length ? r.redes.map((rede, i) => `
+    <div class="telao-linha ${i === 0 && rede.total > 0 ? "top1" : ""}">
+      <span class="telao-pos">${i + 1}</span>
+      <div class="telao-linha-meio">
+        <div class="telao-linha-nome">${escapar(rede.nome)} <span class="sub">${escapar(rede.categoria)}</span></div>
+        <div class="telao-trilho"><div class="telao-preenchimento ${rede.categoria.toLowerCase()}" style="width:${Math.round((rede.total / maiorRede) * 100)}%"></div></div>
+      </div>
+      <span class="telao-linha-valor">${formatarMinutos(rede.total)}</span>
+    </div>`).join("") : `<p class="telao-vazio">Nenhuma rede cadastrada.</p>`;
+
+  renderizarTelaoCelulas();
+  renderizarTelaoGrafico();
+}
+
+function renderizarTelaoCelulas(){
+  if (!ultimoResumo) return;
+  const todas = ultimoResumo.celulas;
+  const wrap = $("telao-celulas");
+  const rotulo = $("telao-celulas-pagina");
+
+  if (!todas.length){
+    wrap.innerHTML = `<p class="telao-vazio">Nenhuma célula cadastrada ainda.</p>`;
+    rotulo.textContent = "";
+    return;
+  }
+
+  const paginas = Math.ceil(todas.length / CELULAS_POR_PAGINA);
+  if (paginaCelulas >= paginas) paginaCelulas = 0;
+  rotulo.textContent = paginas > 1 ? `${paginaCelulas + 1}/${paginas}` : "";
+
+  const inicio = paginaCelulas * CELULAS_POR_PAGINA;
+  const fatia = todas.slice(inicio, inicio + CELULAS_POR_PAGINA);
+  const maior = Math.max(1, ...todas.map(c => c.total));
+
+  wrap.innerHTML = fatia.map((c, i) => {
+    const pos = inicio + i + 1;
+    return `
+    <div class="telao-linha ${pos === 1 && c.total > 0 ? "top1" : ""}">
+      <span class="telao-pos">${pos}</span>
+      <div class="telao-linha-meio">
+        <div class="telao-linha-nome">${escapar(c.nome)} <span class="sub">${escapar(c.redeNome)}</span></div>
+        <div class="telao-trilho"><div class="telao-preenchimento ${c.categoria.toLowerCase()}" style="width:${Math.round((c.total / maior) * 100)}%"></div></div>
+      </div>
+      <span class="telao-linha-valor">${formatarMinutos(c.total)}</span>
+    </div>`;
+  }).join("");
+}
+
+function renderizarTelaoGrafico(){
+  if (!ultimoResumo) return;
+  const totais = ultimoResumo.totaisPorDia;
+  const maior = Math.max(1, ...totais);
+  const hoje = diaAtualEstimado();
+  $("telao-grafico").innerHTML = Array.from({ length: JEJUM_DIAS }, (_, i) => {
+    const d = i + 1;
+    const total = totais[i] || 0;
+    const ativa = escopoAtual !== "todos" && d === diaPainel;
+    return `
+      <div class="telao-barra ${ativa ? "ativa" : ""} ${d === hoje ? "hoje" : ""}" title="Dia ${d}: ${formatarMinutos(total)}">
+        <div class="telao-barra-trilho"><div class="telao-barra-preench" style="height:${Math.round((total / maior) * 100)}%"></div></div>
+        <span class="telao-barra-num">${d}</span>
+      </div>`;
+  }).join("");
+}
+
+function atualizarRelogioTelao(){
+  const agora = new Date();
+  $("telao-relogio").textContent = agora.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  $("telao-data").textContent = agora.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" });
+}
 
 function alternarTelao(){
   const ativo = document.body.classList.toggle("telao");
-  const btn = document.getElementById("btn-telao");
+  const btn = $("btn-telao");
   btn.textContent = ativo ? "Sair do telão" : "Modo telão";
+  $("telao-tela").setAttribute("aria-hidden", ativo ? "false" : "true");
+
   if (ativo){
+    renderizarTelao();
+    atualizarRelogioTelao();
+    telaoRelogioTimer = setInterval(atualizarRelogioTelao, 20000);
+    // Passa sozinho as páginas de células, quando há mais do que cabe na tela
+    telaoRotacaoTimer = setInterval(() => {
+      const paginas = Math.ceil((ultimoResumo?.celulas.length || 0) / CELULAS_POR_PAGINA);
+      if (paginas > 1){ paginaCelulas = (paginaCelulas + 1) % paginas; renderizarTelaoCelulas(); }
+    }, 12000);
     document.documentElement.requestFullscreen?.().catch(() => {});
-  } else if (document.fullscreenElement){
-    document.exitFullscreen?.().catch(() => {});
+  } else {
+    clearInterval(telaoRelogioTimer); telaoRelogioTimer = null;
+    clearInterval(telaoRotacaoTimer); telaoRotacaoTimer = null;
+    if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
   }
 }
 
-document.getElementById("btn-telao").addEventListener("click", alternarTelao);
+$("btn-telao").addEventListener("click", alternarTelao);
 
 document.addEventListener("fullscreenchange", () => {
   if (!document.fullscreenElement && document.body.classList.contains("telao")){
-    document.body.classList.remove("telao");
-    document.getElementById("btn-telao").textContent = "Modo telão";
+    alternarTelao();
   }
 });
 
 // ===================== LOGIN DO DISCIPULADOR =====================
 
 async function popularSelectRedesLogin(){
-  const sel = document.getElementById("login-rede");
+  const sel = $("login-rede");
   const redesSnap = await getDocs(collection(db, "redes"));
   sel.innerHTML = "";
 
@@ -446,59 +726,53 @@ async function popularSelectRedesLogin(){
     });
 }
 
-document.getElementById("form-login").addEventListener("submit", async (e) => {
+$("form-login").addEventListener("submit", async (e) => {
   e.preventDefault();
-  const valorSelecionado = document.getElementById("login-rede").value;
-  const pin = document.getElementById("login-pin").value.trim();
-  const erroEl = document.getElementById("login-erro");
+  const valorSelecionado = $("login-rede").value;
+  const pin = $("login-pin").value.trim();
+  const erroEl = $("login-erro");
   erroEl.classList.add("oculto");
 
   if (valorSelecionado === ADMIN_VALOR_SELECT){
     const snap = await getDoc(doc(db, "config", "admin"));
     const pinValido = snap.exists() ? String(snap.data().pin) : ADMIN_PIN_PADRAO;
-    if (pin !== pinValido){
-      erroEl.textContent = "PIN incorreto. Tente novamente.";
-      erroEl.classList.remove("oculto");
-      return;
-    }
+    if (pin !== pinValido){ erroEl.classList.remove("oculto"); return; }
     sessionStorage.setItem("redeLogadaId", ADMIN_VALOR_SELECT);
     await entrarComoMestre();
-    document.getElementById("login-pin").value = "";
+    $("login-pin").value = "";
     return;
   }
 
   const snap = await getDoc(doc(db, "redes", valorSelecionado));
-  if (!snap.exists() || String(snap.data().pin) !== pin){
-    erroEl.textContent = "PIN incorreto. Tente novamente.";
-    erroEl.classList.remove("oculto");
-    return;
-  }
+  if (!snap.exists() || String(snap.data().pin) !== pin){ erroEl.classList.remove("oculto"); return; }
 
   sessionStorage.setItem("redeLogadaId", valorSelecionado);
   await entrarComoRede(valorSelecionado, snap.data());
-  document.getElementById("login-pin").value = "";
+  $("login-pin").value = "";
 });
 
-async function entrarComoRede(redeId, dados){
-  modoMestre = false;
-  redeLogada = { id: redeId, ...dados };
-  document.getElementById("login-box").classList.add("oculto");
-  document.getElementById("admin-box").classList.remove("oculto");
-  document.getElementById("admin-nome-rede").textContent = redeLogada.nome;
-  document.getElementById("admin-categoria").textContent = redeLogada.categoria;
-  document.getElementById("seletor-rede-mestre-wrap").classList.add("oculto");
-  document.getElementById("gerenciar-pins-wrap").classList.add("oculto");
-
+function aplicarLogoAdmin(redeId, nome){
   const logo = logoDaRede(redeId);
-  const logoEl = document.getElementById("admin-logo");
+  const logoEl = $("admin-logo");
   if (logo){
     logoEl.src = logo;
-    logoEl.alt = redeLogada.nome;
+    logoEl.alt = nome;
     logoEl.classList.remove("oculto");
   } else {
     logoEl.classList.add("oculto");
   }
+}
 
+async function entrarComoRede(redeId, dados){
+  modoMestre = false;
+  redeLogada = { id: redeId, ...dados };
+  $("login-box").classList.add("oculto");
+  $("admin-box").classList.remove("oculto");
+  $("admin-nome-rede").textContent = redeLogada.nome;
+  $("admin-categoria").textContent = redeLogada.categoria;
+  $("seletor-rede-mestre-wrap").classList.add("oculto");
+  $("gerenciar-pins-wrap").classList.add("oculto");
+  aplicarLogoAdmin(redeId, redeLogada.nome);
   resetarDiaLancamento();
   await carregarAdmin();
 }
@@ -510,58 +784,46 @@ async function entrarComoMestre(){
     .map(d => ({ id: d.id, ...d.data() }))
     .sort((a,b) => a.nome.localeCompare(b.nome));
 
-  if (listaRedes.length === 0){
-    toast("Nenhuma rede cadastrada ainda.", "erro");
-    return;
-  }
+  if (listaRedes.length === 0){ toast("Nenhuma rede cadastrada ainda.", "erro"); return; }
 
-  const sel = document.getElementById("seletor-rede-mestre");
-  sel.innerHTML = listaRedes.map(r => `<option value="${r.id}">${r.nome} (${r.categoria})</option>`).join("");
+  const sel = $("seletor-rede-mestre");
+  sel.innerHTML = listaRedes.map(r => `<option value="${r.id}">${escapar(r.nome)} (${escapar(r.categoria)})</option>`).join("");
   sessionStorage.setItem("mestreRedeAtual", listaRedes[0].id);
 
-  document.getElementById("login-box").classList.add("oculto");
-  document.getElementById("admin-box").classList.remove("oculto");
-  document.getElementById("seletor-rede-mestre-wrap").classList.remove("oculto");
-  document.getElementById("gerenciar-pins-wrap").classList.remove("oculto");
-  document.getElementById("admin-logo").classList.add("oculto");
+  $("login-box").classList.add("oculto");
+  $("admin-box").classList.remove("oculto");
+  $("seletor-rede-mestre-wrap").classList.remove("oculto");
+  $("gerenciar-pins-wrap").classList.remove("oculto");
+  $("admin-logo").classList.add("oculto");
 
   montarGerenciadorPins(listaRedes);
-  await selecionarRedeNoMestre(listaRedes[0].id, listaRedes);
+  await selecionarRedeNoMestre(listaRedes[0].id);
 }
 
-async function selecionarRedeNoMestre(redeId, listaRedesConhecida){
+async function selecionarRedeNoMestre(redeId){
   const snap = await getDoc(doc(db, "redes", redeId));
   if (!snap.exists()) return;
   const dados = snap.data();
   redeLogada = { id: redeId, ...dados };
   sessionStorage.setItem("mestreRedeAtual", redeId);
 
-  document.getElementById("admin-nome-rede").textContent = dados.nome;
-  document.getElementById("admin-categoria").textContent = `${dados.categoria} · modo administrador`;
-
-  const logo = logoDaRede(redeId);
-  const logoEl = document.getElementById("admin-logo");
-  if (logo){
-    logoEl.src = logo;
-    logoEl.alt = dados.nome;
-    logoEl.classList.remove("oculto");
-  } else {
-    logoEl.classList.add("oculto");
-  }
+  $("admin-nome-rede").textContent = dados.nome;
+  $("admin-categoria").textContent = `${dados.categoria} · modo administrador`;
+  aplicarLogoAdmin(redeId, dados.nome);
 
   resetarDiaLancamento();
   await carregarAdmin();
 }
 
-document.getElementById("seletor-rede-mestre").addEventListener("change", async (e) => {
+$("seletor-rede-mestre").addEventListener("change", async (e) => {
   await selecionarRedeNoMestre(e.target.value);
 });
 
 function montarGerenciadorPins(listaRedes){
-  const wrap = document.getElementById("gerenciar-pins-lista");
+  const wrap = $("gerenciar-pins-lista");
   wrap.innerHTML = listaRedes.map(r => `
     <form class="gerenciar-pins-linha" data-rede-id="${r.id}">
-      <span>${r.nome}</span>
+      <span>${escapar(r.nome)}</span>
       <input type="password" inputmode="numeric" placeholder="Novo PIN" class="gerenciar-pin-input" required>
       <button type="submit" class="botao botao-pequeno botao-secundario">Salvar</button>
     </form>
@@ -570,49 +832,44 @@ function montarGerenciadorPins(listaRedes){
   wrap.querySelectorAll("form").forEach(form => {
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const redeId = form.dataset.redeId;
       const input = form.querySelector(".gerenciar-pin-input");
       const novoPin = input.value.trim();
       if (!novoPin) return;
-      await updateDoc(doc(db, "redes", redeId), { pin: novoPin });
+      await updateDoc(doc(db, "redes", form.dataset.redeId), { pin: novoPin });
       input.value = "";
-      toast(`PIN da rede atualizado.`);
+      toast("PIN da rede atualizado.");
     });
   });
 }
 
-document.getElementById("form-admin-pin").addEventListener("submit", async (e) => {
+$("form-admin-pin").addEventListener("submit", async (e) => {
   e.preventDefault();
-  const novoPin = document.getElementById("novo-pin-admin").value.trim();
+  const novoPin = $("novo-pin-admin").value.trim();
   if (!novoPin) return;
   await setDoc(doc(db, "config", "admin"), { pin: novoPin }, { merge: true });
-  document.getElementById("novo-pin-admin").value = "";
+  $("novo-pin-admin").value = "";
   toast("PIN administrador atualizado.");
 });
 
-document.getElementById("btn-sair").addEventListener("click", () => {
+$("btn-sair").addEventListener("click", () => {
   redeLogada = null;
   modoMestre = false;
   sessionStorage.removeItem("redeLogadaId");
   sessionStorage.removeItem("mestreRedeAtual");
-  document.getElementById("admin-box").classList.add("oculto");
-  document.getElementById("login-box").classList.remove("oculto");
+  $("admin-box").classList.add("oculto");
+  $("login-box").classList.remove("oculto");
 });
 
-document.getElementById("form-pin").addEventListener("submit", async (e) => {
+$("form-pin").addEventListener("submit", async (e) => {
   e.preventDefault();
-  const novoPin = document.getElementById("novo-pin").value.trim();
+  const novoPin = $("novo-pin").value.trim();
   if (!novoPin) return;
   await updateDoc(doc(db, "redes", redeLogada.id), { pin: novoPin });
-  document.getElementById("novo-pin").value = "";
+  $("novo-pin").value = "";
   toast("PIN atualizado.");
 });
 
-// ===================== DIA DE LANÇAMENTO (corrige o bug do seletor gigante) =====================
-// Em vez de um <select> com 21 dias repetido em cada membro (que reiniciava
-// para o dia atual a cada lançamento), existe um único seletor de dia no
-// topo da área do discipulador. Ele é lembrado em memória e só muda quando
-// o próprio discipulador navega — nunca "some" sozinho depois de lançar.
+// ===================== DIA DE LANÇAMENTO =====================
 
 function resetarDiaLancamento(){
   diaLancamento = diaAtualEstimado();
@@ -620,28 +877,28 @@ function resetarDiaLancamento(){
 }
 
 function atualizarRotuloDiaLancamento(){
-  document.getElementById("dia-lanc-num").textContent = `Dia ${diaLancamento}`;
-  document.getElementById("dia-lanc-data").textContent = dataFromDia(diaLancamento);
-  document.getElementById("dia-lanc-prev").disabled = diaLancamento <= 1;
-  document.getElementById("dia-lanc-next").disabled = diaLancamento >= JEJUM_DIAS;
+  $("dia-lanc-num").textContent = `Dia ${diaLancamento}`;
+  $("dia-lanc-data").textContent = dataFromDia(diaLancamento);
+  $("dia-lanc-prev").disabled = diaLancamento <= 1;
+  $("dia-lanc-next").disabled = diaLancamento >= JEJUM_DIAS;
 }
 
-document.getElementById("dia-lanc-prev").addEventListener("click", () => {
+$("dia-lanc-prev").addEventListener("click", () => {
   if (diaLancamento > 1){ diaLancamento--; atualizarRotuloDiaLancamento(); }
 });
-document.getElementById("dia-lanc-next").addEventListener("click", () => {
+$("dia-lanc-next").addEventListener("click", () => {
   if (diaLancamento < JEJUM_DIAS){ diaLancamento++; atualizarRotuloDiaLancamento(); }
 });
-document.getElementById("dia-lanc-hoje").addEventListener("click", () => {
+$("dia-lanc-hoje").addEventListener("click", () => {
   diaLancamento = diaAtualEstimado();
   atualizarRotuloDiaLancamento();
 });
 
 // ===================== ADMIN: CÉLULAS / MEMBROS / REGISTROS =====================
 
-document.getElementById("form-celula").addEventListener("submit", async (e) => {
+$("form-celula").addEventListener("submit", async (e) => {
   e.preventDefault();
-  const input = document.getElementById("nome-celula");
+  const input = $("nome-celula");
   const nome = input.value.trim();
   if (!nome) return;
   await addDoc(collection(db, "redes", redeLogada.id, "celulas"), { nome });
@@ -650,22 +907,59 @@ document.getElementById("form-celula").addEventListener("submit", async (e) => {
   toast(`Célula "${nome}" adicionada.`);
 });
 
+function montarNavCelulas(celulas){
+  const nav = $("celulas-nav");
+  if (!celulas.length){ nav.classList.add("oculto"); nav.innerHTML = ""; return; }
+  nav.classList.remove("oculto");
+  nav.innerHTML = `<span class="celulas-nav-rotulo">Ir para a célula</span>` + celulas.map(c => `
+    <button type="button" class="chip-celula" data-ir="${c.id}">
+      ${escapar(c.nome)}
+      <span class="chip-tempo">${formatarMinutos(c.total)}</span>
+    </button>`).join("");
+
+  nav.querySelectorAll("[data-ir]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const alvo = document.querySelector(`.celula-admin[data-celula-id="${btn.dataset.ir}"]`);
+      if (!alvo) return;
+      alvo.open = true;
+      abertosAdmin.add(btn.dataset.ir);
+      alvo.scrollIntoView({ behavior: reduzMovimento ? "auto" : "smooth", block: "start" });
+      alvo.classList.remove("piscando");
+      void alvo.offsetWidth;
+      alvo.classList.add("piscando");
+      nav.querySelectorAll(".chip-celula").forEach(b => b.classList.remove("alvo"));
+      btn.classList.add("alvo");
+    });
+  });
+}
+
 async function carregarAdmin(){
   atualizarRotuloDiaLancamento();
   const celulas = await buscarUmaRede(redeLogada.id);
-  const lista = document.getElementById("lista-celulas");
-  const tplCelula = document.getElementById("tpl-celula-admin");
-  const tplMembro = document.getElementById("tpl-membro-admin");
-  const tplRegistro = document.getElementById("tpl-registro-item");
+  const lista = $("lista-celulas");
+  const tplCelula = $("tpl-celula-admin");
+  const tplMembro = $("tpl-membro-admin");
+  const tplRegistro = $("tpl-registro-item");
 
   lista.innerHTML = "";
 
+  const resumoCelulas = [];
+
   for (const celula of celulas){
     const noCelula = tplCelula.content.cloneNode(true);
+    const elCelula = noCelula.querySelector(".celula-admin");
+    elCelula.dataset.celulaId = celula.id;
+    if (abertosAdmin.has(celula.id)) elCelula.open = true;
+    elCelula.addEventListener("toggle", () => {
+      if (elCelula.open) abertosAdmin.add(celula.id);
+      else abertosAdmin.delete(celula.id);
+    });
+
     noCelula.querySelector(".nome-celula").textContent = celula.nome;
 
     const totalCelula = celula.membros.reduce((acc, m) => acc + somaRegistros(m.registros, "todos"), 0);
-    noCelula.querySelector(".celula-total").textContent = `Total do jejum: ${formatarMinutos(totalCelula)}`;
+    noCelula.querySelector(".celula-total").textContent = formatarMinutos(totalCelula);
+    resumoCelulas.push({ id: celula.id, nome: celula.nome, total: totalCelula });
 
     const formMembro = noCelula.querySelector(".form-membro");
     formMembro.addEventListener("submit", async (e) => {
@@ -673,6 +967,7 @@ async function carregarAdmin(){
       const input = formMembro.querySelector(".nome-membro");
       const nome = input.value.trim();
       if (!nome) return;
+      abertosAdmin.add(celula.id);
       await addDoc(collection(db, "redes", redeLogada.id, "celulas", celula.id, "membros"), { nome });
       await carregarAdmin();
       toast(`${nome} adicionado à célula.`);
@@ -682,8 +977,10 @@ async function carregarAdmin(){
     for (const membro of celula.membros){
       const noMembro = tplMembro.content.cloneNode(true);
       noMembro.querySelector(".membro-nome").textContent = membro.nome;
-      noMembro.querySelector(".membro-total").textContent =
-        `Total: ${formatarMinutos(somaRegistros(membro.registros, "todos"))}`;
+      const totalMembro = somaRegistros(membro.registros, "todos");
+      const elTotalMembro = noMembro.querySelector(".membro-total");
+      elTotalMembro.textContent = formatarMinutos(totalMembro);
+      if (totalMembro === 0) elTotalMembro.classList.add("zerado");
 
       const formRegistro = noMembro.querySelector(".form-registro");
       formRegistro.addEventListener("submit", async (e) => {
@@ -693,6 +990,7 @@ async function carregarAdmin(){
         const minutos = Number(formRegistro.querySelector(".registro-minutos").value) || 0;
         const totalMin = horas * 60 + minutos;
         if (totalMin <= 0) return;
+        abertosAdmin.add(celula.id);
         await addDoc(
           collection(db, "redes", redeLogada.id, "celulas", celula.id, "membros", membro.id, "registros"),
           { dia, data: dataFromDia(dia), minutos: totalMin, criadoEm: serverTimestamp() }
@@ -701,9 +999,7 @@ async function carregarAdmin(){
         toast(`Lançado para ${membro.nome}: ${formatarMinutos(totalMin)} no Dia ${dia}.`);
       });
 
-      // Cronômetro: marca o tempo de oração ao vivo e, ao parar, já
-      // preenche os campos de horas/minutos — ninguém precisa olhar no
-      // relógio e fazer conta.
+      // Cronômetro
       const btnCrono = noMembro.querySelector(".crono-botao");
       const elCrono = noMembro.querySelector(".crono-tempo");
       let cronoInicio = null;
@@ -734,7 +1030,9 @@ async function carregarAdmin(){
         }, 1000);
       });
 
-      const listaRegistros = noMembro.querySelector(".lista-registros");      membro.registros
+      const listaRegistros = noMembro.querySelector(".lista-registros");
+      membro.registros
+        .slice()
         .sort((a,b) => a.dia - b.dia)
         .forEach(reg => {
           const noReg = tplRegistro.content.cloneNode(true);
@@ -743,6 +1041,7 @@ async function carregarAdmin(){
           noReg.querySelector(".registro-item-excluir").addEventListener("click", async () => {
             const ok = await confirmarModal(`Excluir o lançamento do Dia ${reg.dia} de ${membro.nome}?`);
             if (!ok) return;
+            abertosAdmin.add(celula.id);
             await deleteDoc(doc(db, "redes", redeLogada.id, "celulas", celula.id, "membros", membro.id, "registros", reg.id));
             await carregarAdmin();
             toast("Lançamento excluído.");
@@ -755,34 +1054,37 @@ async function carregarAdmin(){
 
     lista.appendChild(noCelula);
   }
+
+  montarNavCelulas(resumoCelulas);
 }
 
 // ===================== INICIALIZAÇÃO =====================
 
 async function iniciar(){
+  temaPref = lerTemaPref();
+  aplicarTema();
+
   atualizarEscopo();
   atualizarRotuloDiaLancamento();
+  atualizarRelogioTelao();
+
   await verificarSeed();
   await carregarPainel();
   await popularSelectRedesLogin();
 
-  // Auto-atualiza o painel a cada 20s (útil para telão/projeção durante o culto)
   autoRefreshTimer = setInterval(carregarPainel, 20000);
 
-  // Retoma sessão do discipulador, se ainda estiver marcada neste navegador
   const redeSalva = sessionStorage.getItem("redeLogadaId");
   if (redeSalva === ADMIN_VALOR_SELECT){
     await entrarComoMestre();
     const redeMestreSalva = sessionStorage.getItem("mestreRedeAtual");
     if (redeMestreSalva){
-      document.getElementById("seletor-rede-mestre").value = redeMestreSalva;
+      $("seletor-rede-mestre").value = redeMestreSalva;
       await selecionarRedeNoMestre(redeMestreSalva);
     }
   } else if (redeSalva){
     const snap = await getDoc(doc(db, "redes", redeSalva));
-    if (snap.exists()){
-      await entrarComoRede(redeSalva, snap.data());
-    }
+    if (snap.exists()) await entrarComoRede(redeSalva, snap.data());
   }
 }
 

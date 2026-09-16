@@ -1,19 +1,30 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-tema="claro">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Relógio de Oração — Jejum 21 Dias</title>
 <link rel="icon" href="img/logo-videira.png">
-<meta name="theme-color" content="#FBFAF7">
+<meta name="theme-color" content="#FBFAF7" id="meta-theme-color">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
+<script>
+  // Aplica o tema salvo antes de pintar a tela, para não piscar branco à noite.
+  (function(){
+    try{
+      var pref = localStorage.getItem("tema-pref") || "auto";
+      var h = new Date().getHours();
+      var escuro = pref === "escuro" || (pref === "auto" && (h >= 18 || h < 6));
+      document.documentElement.setAttribute("data-tema", escuro ? "escuro" : "claro");
+    }catch(e){}
+  })();
+</script>
 </head>
 <body>
 
-<div class="ceu" aria-hidden="true"></div>
+<div class="ceu" id="ceu" aria-hidden="true"></div>
 
 <header class="topo">
   <div class="topo-marca">
@@ -21,6 +32,9 @@
     <div class="topo-conteudo">
       <p class="topo-eyebrow" id="jejum-tema">carregando…</p>
       <h1>Relógio de Oração</h1>
+    </div>
+    <div class="topo-acoes">
+      <button class="btn-icone" id="btn-tema" type="button" title="Alternar tema" aria-label="Alternar tema">🌓</button>
     </div>
   </div>
   <nav class="abas" id="abas">
@@ -68,6 +82,11 @@
     <div class="grafico-jejum" id="grafico-jejum" aria-label="Oração por dia do jejum — clique num dia para ver"></div>
 
     <div class="comparativo-categorias oculto" id="comparativo-categorias"></div>
+
+    <div class="painel-ferramentas">
+      <button type="button" class="chip-acao" id="btn-expandir-tudo">Expandir tudo</button>
+      <button type="button" class="chip-acao" id="btn-recolher-tudo">Recolher tudo</button>
+    </div>
 
     <div id="painel-conteudo" class="painel-conteudo">
       <div class="skeleton-bloco"></div>
@@ -151,6 +170,8 @@
         <button type="submit" class="botao botao-principal">Adicionar célula</button>
       </form>
 
+      <div id="celulas-nav" class="celulas-nav oculto"></div>
+
       <div id="lista-celulas" class="lista-celulas"></div>
 
     </div>
@@ -159,18 +180,71 @@
 
 </main>
 
+<!-- ===================== MODO TELÃO (dashboard) ===================== -->
+<div class="telao-tela" id="telao-tela" aria-hidden="true">
+
+  <div class="telao-topo">
+    <img class="telao-logo" id="telao-logo" src="img/logo-videira.png" alt="">
+    <div class="telao-marca">
+      <p class="telao-eyebrow" id="telao-tema">—</p>
+      <h2>Relógio de Oração</h2>
+    </div>
+    <div class="telao-topo-dir">
+      <div class="telao-caixa-topo">
+        <span class="rotulo">Dia do jejum</span>
+        <span class="valor" id="telao-dia">—</span>
+      </div>
+      <div class="telao-caixa-topo">
+        <span class="rotulo" id="telao-data">—</span>
+        <span class="valor" id="telao-relogio">—</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="telao-corpo">
+
+    <div class="telao-hero">
+      <div class="telao-hero-total">
+        <span class="rotulo" id="telao-hero-rotulo">Total de oração</span>
+        <span class="valor" id="telao-hero-valor">0min</span>
+      </div>
+      <div class="telao-hero-lado" id="telao-hero-lado"></div>
+    </div>
+
+    <div class="telao-coluna">
+      <h3 class="telao-coluna-titulo">Redes</h3>
+      <div class="telao-lista" id="telao-redes"></div>
+    </div>
+
+    <div class="telao-coluna">
+      <h3 class="telao-coluna-titulo">Células <span class="pagina" id="telao-celulas-pagina"></span></h3>
+      <div class="telao-lista" id="telao-celulas"></div>
+    </div>
+
+  </div>
+
+  <div class="telao-rodape">
+    <div class="telao-grafico" id="telao-grafico"></div>
+    <div class="telao-dica"><span class="pulso-ao-vivo" aria-hidden="true"></span><span id="telao-atualizado">—</span> · T ou Esc para sair</div>
+  </div>
+
+</div>
+
 <template id="tpl-celula-admin">
-  <article class="celula-admin">
-    <div class="celula-admin-cabecalho">
+  <details class="celula-admin">
+    <summary>
+      <span class="celula-seta" aria-hidden="true"></span>
       <h3 class="nome-celula"></h3>
       <span class="celula-total"></span>
+    </summary>
+    <div class="celula-admin-corpo">
+      <form class="form-membro form-inline">
+        <input type="text" class="nome-membro" placeholder="Nome do membro" required>
+        <button type="submit" class="botao botao-secundario">Adicionar membro</button>
+      </form>
+      <div class="lista-membros"></div>
     </div>
-    <form class="form-membro form-inline">
-      <input type="text" class="nome-membro" placeholder="Nome do membro" required>
-      <button type="submit" class="botao botao-secundario">Adicionar membro</button>
-    </form>
-    <div class="lista-membros"></div>
-  </article>
+  </details>
 </template>
 
 <template id="tpl-membro-admin">

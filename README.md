@@ -35,11 +35,33 @@ Troque também o PIN administrador assim que possível (ver abaixo).
   um dia ou o acumulado. Os nomes dos membros ficam escondidos atrás de
   "Ver quem orou" para a tela não virar um paredão. Atualiza sozinho a
   cada 20s.
-- **Modo telão**: botão no canto do cabeçalho (ou a tecla **T**). Entra em
-  tela cheia, aumenta tudo e esconde os controles de edição — pronto para
-  projetar no culto. Sai com Esc ou T de novo.
+- **Tema claro / escuro**: botão 🌗 no canto do cabeçalho. Ele alterna
+  entre **automático → claro → escuro** e a escolha fica salva no
+  navegador. No modo automático o site escurece sozinho das 18h às 6h e
+  aparecem a lua e um céu estrelado ao fundo (com um meteoro de vez em
+  quando). O tema escuro vale também para o modo telão.
+- **Modo telão (dashboard)**: botão no canto do cabeçalho (ou a tecla
+  **T**). Entra em tela cheia e troca a tela inteira por um painel de
+  projeção, com:
+  - o total de oração em número gigante, com Jovens x Adolescentes ao lado;
+  - **ranking das redes**, com barra proporcional e tempo de cada uma;
+  - **ranking das células** (as que mais oraram primeiro). Quando há mais
+    células do que cabe na tela, ele passa as páginas sozinho a cada 12s;
+  - a linha dos 21 dias no rodapé, destacando o dia de hoje;
+  - dia do jejum, data e relógio no topo.
+  Os dados se atualizam sozinhos a cada 20s. As setas ‹ › do teclado
+  trocam o dia mesmo dentro do telão. Sai com Esc ou T de novo.
+- **Células que abrem e fecham**: no Painel, cada rede lista suas células
+  com o nome em destaque, a quantidade de membros e o tempo total. Clicar
+  na célula abre a lista de quem orou. Os botões "Expandir tudo" e
+  "Recolher tudo" ficam logo acima da lista, e o sistema lembra o que
+  você deixou aberto mesmo quando a tela se atualiza sozinha.
 - **Área do discipulador**: o próprio discipulador entra com o PIN da
   rede dele e:
+  - navega entre as células pelos atalhos no topo da lista ("Ir para a
+    célula") — clicar num deles abre a célula e leva a tela até ela;
+  - cada célula abre e fecha no clique, então dá pra manter só a que você
+    está lançando aberta;
   - cria as células da rede (uma vez só, no início);
   - adiciona os membros de cada célula;
   - escolhe o **dia de lançamento** uma vez (setas ◄ ► ou "ir para hoje")
