@@ -26,6 +26,7 @@
   <nav class="abas" id="abas">
     <button class="aba ativa" data-aba="painel">Painel</button>
     <button class="aba" data-aba="discipulador">Lançar oração</button>
+    <button class="btn-telao" id="btn-telao" type="button" title="Modo telão (tecla T)">Modo telão</button>
   </nav>
 </header>
 
@@ -63,6 +64,8 @@
       <span class="pulso-ao-vivo" aria-hidden="true"></span>
       Atualizado às <span id="hora-atualizacao">—</span> · <button id="btn-atualizar" class="link-botao">atualizar agora</button>
     </p>
+
+    <div class="grafico-jejum" id="grafico-jejum" aria-label="Oração por dia do jejum — clique num dia para ver"></div>
 
     <div class="comparativo-categorias oculto" id="comparativo-categorias"></div>
 
@@ -181,6 +184,10 @@
       <input type="number" class="registro-minutos" min="0" max="59" placeholder="min" inputmode="numeric">
       <button type="submit" class="botao botao-pequeno">Lançar</button>
     </form>
+    <div class="cronometro">
+      <button type="button" class="crono-botao">Cronômetro</button>
+      <span class="crono-tempo oculto">00:00</span>
+    </div>
     <ul class="lista-registros"></ul>
   </div>
 </template>

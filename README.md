@@ -27,11 +27,17 @@ Troque também o PIN administrador assim que possível (ver abaixo).
 
 ## Uso no dia a dia
 
-- **Painel**: tela pública, pode ficar projetada no telão. Mostra o
-  cronograma por dia (com os "degraus" 1 a 21) ou o total acumulado do
-  jejum inteiro (marcando a caixinha), além de um comparativo Jovens vs.
-  Adolescentes. Atualiza sozinho a cada 20s, e tem um botão "atualizar
-  agora".
+- **Painel**: tela pública. No topo, o total de oração em número grande;
+  abaixo, um gráfico com os 21 dias — cada barra é o total daquele dia, e
+  clicar numa barra troca o dia mostrado. As setas ‹ › e as setas do
+  teclado também navegam entre os dias (funciona com controle remoto de
+  apresentação). O botão "Só esse dia / Jejum inteiro" alterna entre ver
+  um dia ou o acumulado. Os nomes dos membros ficam escondidos atrás de
+  "Ver quem orou" para a tela não virar um paredão. Atualiza sozinho a
+  cada 20s.
+- **Modo telão**: botão no canto do cabeçalho (ou a tecla **T**). Entra em
+  tela cheia, aumenta tudo e esconde os controles de edição — pronto para
+  projetar no culto. Sai com Esc ou T de novo.
 - **Área do discipulador**: o próprio discipulador entra com o PIN da
   rede dele e:
   - cria as células da rede (uma vez só, no início);
@@ -40,6 +46,9 @@ Troque também o PIN administrador assim que possível (ver abaixo).
     e lança quanto cada membro orou naquele dia — o seletor de dia fica
     fixo até você mesmo trocar, então dá para lançar vários membros
     seguidos sem ele "voltar" sozinho para hoje;
+  - pode usar o **Cronômetro** de cada membro: clica em "Cronômetro" no
+    começo da oração e em "Parar e preencher" no fim — o tempo já entra
+    nos campos de horas/minutos, é só conferir e clicar em Lançar;
   - pode excluir um lançamento errado.
 - **Acesso administrador**: na tela de login, escolha a opção
   "🔑 Acesso administrador (todas as redes)" e digite o PIN administrador.

@@ -237,6 +237,48 @@ document.querySelectorAll(".escopo-op").forEach(btn => {
   });
 });
 
+// Setas do teclado navegam os dias (útil no telão, com o controle remoto
+// de apresentação, que costuma mandar seta esquerda/direita).
+document.addEventListener("keydown", (e) => {
+  const digitando = ["INPUT", "SELECT", "TEXTAREA"].includes(document.activeElement?.tagName);
+  if (digitando) return;
+  if (!document.getElementById("tab-painel").classList.contains("ativo")) return;
+  if (e.key === "ArrowLeft" && escopoAtual !== "todos") irParaDia(diaPainel - 1);
+  if (e.key === "ArrowRight" && escopoAtual !== "todos") irParaDia(diaPainel + 1);
+  if (e.key.toLowerCase() === "t") alternarTelao();
+});
+
+// ===================== GRÁFICO DOS 21 DIAS =====================
+// Cada barra é o total orado naquele dia. Clicar numa barra troca o dia
+// mostrado no painel — dá pra ver o jejum inteiro de relance e navegar
+// pelo mesmo gesto.
+
+function montarGraficoJejum(totaisPorDia){
+  const wrap = document.getElementById("grafico-jejum");
+  const maior = Math.max(1, ...totaisPorDia);
+  const hoje = diaAtualEstimado();
+  wrap.innerHTML = "";
+
+  for (let d = 1; d <= JEJUM_DIAS; d++){
+    const total = totaisPorDia[d - 1] || 0;
+    const altura = Math.round((total / maior) * 100);
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "barra-dia"
+      + (escopoAtual !== "todos" && d === diaPainel ? " ativa" : "")
+      + (d === hoje ? " hoje" : "")
+      + (total === 0 ? " vazia" : "");
+    b.setAttribute("aria-label", `Dia ${d}, ${dataFromDia(d)}: ${formatarMinutos(total)}`);
+    b.innerHTML = `
+      <span class="barra-valor">${formatarMinutos(total)}</span>
+      <span class="barra-trilho"><span class="barra-preenchimento" style="height:${altura}%"></span></span>
+      <span class="barra-num">${d}</span>
+    `;
+    b.addEventListener("click", () => irParaDia(d));
+    wrap.appendChild(b);
+  }
+}
+
 document.getElementById("btn-atualizar").addEventListener("click", carregarPainel);
 
 // ===================== RENDER: PAINEL GERAL =====================
@@ -322,6 +364,15 @@ async function carregarPainel(){
 
   montarComparativoCategorias(totalPorCategoria);
 
+  // Total de cada um dos dias do jejum, para o gráfico
+  const totaisPorDia = new Array(JEJUM_DIAS).fill(0);
+  redes.forEach(rede => rede.celulas.forEach(cel => cel.membros.forEach(m =>
+    m.registros.forEach(r => {
+      if (r.dia >= 1 && r.dia <= JEJUM_DIAS) totaisPorDia[r.dia - 1] += (r.minutos || 0);
+    })
+  )));
+  montarGraficoJejum(totaisPorDia);
+
   const elTotalGeral = document.getElementById("total-geral-valor");
   animarValor(elTotalGeral, primeiraCargaPainel ? totalGeral : ultimoTotalGeral, totalGeral);
   ultimoTotalGeral = totalGeral;
@@ -348,6 +399,30 @@ function montarComparativoCategorias(totalPorCategoria){
     </div>
   `).join("");
 }
+
+// ===================== MODO TELÃO =====================
+// Para projetar durante o culto: esconde os controles de edição, aumenta
+// tudo e entra em tela cheia. Sai com Esc ou apertando T de novo.
+
+function alternarTelao(){
+  const ativo = document.body.classList.toggle("telao");
+  const btn = document.getElementById("btn-telao");
+  btn.textContent = ativo ? "Sair do telão" : "Modo telão";
+  if (ativo){
+    document.documentElement.requestFullscreen?.().catch(() => {});
+  } else if (document.fullscreenElement){
+    document.exitFullscreen?.().catch(() => {});
+  }
+}
+
+document.getElementById("btn-telao").addEventListener("click", alternarTelao);
+
+document.addEventListener("fullscreenchange", () => {
+  if (!document.fullscreenElement && document.body.classList.contains("telao")){
+    document.body.classList.remove("telao");
+    document.getElementById("btn-telao").textContent = "Modo telão";
+  }
+});
 
 // ===================== LOGIN DO DISCIPULADOR =====================
 
@@ -626,8 +701,40 @@ async function carregarAdmin(){
         toast(`Lançado para ${membro.nome}: ${formatarMinutos(totalMin)} no Dia ${dia}.`);
       });
 
-      const listaRegistros = noMembro.querySelector(".lista-registros");
-      membro.registros
+      // Cronômetro: marca o tempo de oração ao vivo e, ao parar, já
+      // preenche os campos de horas/minutos — ninguém precisa olhar no
+      // relógio e fazer conta.
+      const btnCrono = noMembro.querySelector(".crono-botao");
+      const elCrono = noMembro.querySelector(".crono-tempo");
+      let cronoInicio = null;
+      let cronoTimer = null;
+
+      btnCrono.addEventListener("click", () => {
+        if (cronoTimer){
+          clearInterval(cronoTimer);
+          cronoTimer = null;
+          const decorridos = Math.round((Date.now() - cronoInicio) / 1000);
+          const totalMin = Math.max(1, Math.round(decorridos / 60));
+          formRegistro.querySelector(".registro-horas").value = Math.floor(totalMin / 60) || "";
+          formRegistro.querySelector(".registro-minutos").value = totalMin % 60;
+          btnCrono.textContent = "Cronômetro";
+          btnCrono.classList.remove("rodando");
+          elCrono.classList.add("oculto");
+          toast(`${formatarMinutos(totalMin)} marcados. Confira e clique em Lançar.`);
+          return;
+        }
+        cronoInicio = Date.now();
+        btnCrono.textContent = "Parar e preencher";
+        btnCrono.classList.add("rodando");
+        elCrono.classList.remove("oculto");
+        elCrono.textContent = "00:00";
+        cronoTimer = setInterval(() => {
+          const s = Math.floor((Date.now() - cronoInicio) / 1000);
+          elCrono.textContent = `${pad(Math.floor(s / 60))}:${pad(s % 60)}`;
+        }, 1000);
+      });
+
+      const listaRegistros = noMembro.querySelector(".lista-registros");      membro.registros
         .sort((a,b) => a.dia - b.dia)
         .forEach(reg => {
           const noReg = tplRegistro.content.cloneNode(true);

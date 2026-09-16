@@ -483,3 +483,131 @@ input:focus, select:focus, button:focus-visible, summary:focus-visible{ outline:
   .form-registro{ flex-wrap: wrap; }
   .registro-horas, .registro-minutos{ flex: 1; width: auto; }
 }
+
+/* ===================== GRÁFICO DOS 21 DIAS ===================== */
+.grafico-jejum{
+  display:flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 116px;
+  margin: 0 0 2rem;
+  padding-bottom: .2rem;
+}
+.barra-dia{
+  flex: 1 1 0;
+  min-width: 0;
+  height: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display:flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: stretch;
+  gap: 3px;
+  position: relative;
+}
+.barra-valor{
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  background: var(--tinta);
+  color: #fff;
+  padding: 2px 7px;
+  border-radius: 5px;
+  font-size: .72rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .15s ease;
+}
+.barra-trilho{
+  display:flex;
+  align-items: flex-end;
+  height: 72px;
+  background: #EFEDE7;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.barra-preenchimento{
+  width: 100%;
+  background: #A8C9BC;
+  border-radius: 4px;
+  transition: height .5s cubic-bezier(.2,.8,.2,1), background .15s ease;
+  min-height: 2px;
+}
+.barra-num{
+  font-size: .68rem;
+  color: var(--tinta-suave);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.barra-dia:hover .barra-preenchimento{ background: var(--verde); }
+.barra-dia:hover .barra-valor{ opacity: 1; }
+.barra-dia.hoje .barra-num{ font-weight: 700; color: var(--tinta); }
+.barra-dia.hoje .barra-num::after{
+  content: "";
+  display: block;
+  width: 4px; height: 4px;
+  margin: 1px auto 0;
+  border-radius: 50%;
+  background: var(--verde);
+}
+.barra-dia.ativa .barra-preenchimento{ background: var(--verde); }
+.barra-dia.ativa .barra-valor{ opacity: 1; background: var(--verde); font-weight: 600; }
+.barra-dia.ativa .barra-num{ color: var(--verde); font-weight: 700; }
+.barra-dia.vazia .barra-preenchimento{ background: var(--borda); }
+
+/* ===================== CRONÔMETRO ===================== */
+.cronometro{ display:flex; align-items:center; gap: .6rem; margin-bottom: .2rem; }
+.crono-botao{
+  background: none;
+  border: 1px solid var(--borda-forte);
+  color: var(--tinta-suave);
+  border-radius: 999px;
+  padding: .3rem .8rem;
+  font-size: .82rem;
+  cursor: pointer;
+}
+.crono-botao:hover{ border-color: var(--verde); color: var(--verde); }
+.crono-botao.rodando{ background: var(--verde); border-color: var(--verde); color: #fff; }
+.crono-tempo{
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--verde);
+}
+
+/* ===================== MODO TELÃO ===================== */
+.btn-telao{
+  margin-left: auto;
+  align-self: center;
+  background: none;
+  border: 1px solid var(--borda-forte);
+  color: var(--tinta-suave);
+  border-radius: 999px;
+  padding: .3rem .85rem;
+  font-size: .82rem;
+  cursor: pointer;
+  margin-bottom: .4rem;
+}
+.btn-telao:hover{ border-color: var(--verde); color: var(--verde); }
+
+body.telao{ font-size: 21px; }
+body.telao .topo, body.telao main{ max-width: 1100px; }
+body.telao .aba[data-aba="discipulador"],
+body.telao .rede-detalhe,
+body.telao .atualizado-em .link-botao{ display: none; }
+body.telao .aba{ pointer-events: none; }
+body.telao .total-geral{ padding: 2.5rem 1.5rem; }
+body.telao .total-geral-valor{ font-size: clamp(3.5rem, 12vw, 7rem); }
+body.telao .total-geral-rotulo{ font-size: 1.2rem; }
+body.telao .grafico-jejum{ height: 170px; }
+body.telao .barra-trilho{ height: 120px; }
+body.telao .rede-nome, body.telao .rede-total{ font-size: 1.35rem; }
+body.telao .rede-barra{ height: 12px; }
+body.telao .comparativo-nome, body.telao .comparativo-valor{ font-size: 1.05rem; }
