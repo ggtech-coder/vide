@@ -5,8 +5,18 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {
   firebaseConfig, JEJUM_INICIO, JEJUM_DIAS, JEJUM_TEMA, REDES_PADRAO,
-  IGREJA_NOME, IGREJA_LOGO, ADMIN_PIN_PADRAO
+  IGREJA_NOME, IGREJA_LOGO, ADMIN_PIN_PADRAO, CATEGORIA_LIDERES
 } from "./config.js";
+
+// Transforma o nome de uma categoria em algo utilizável como classe CSS:
+// "Sal da Terra" -> "sal-da-terra", "Ágape" -> "agape".
+function classeCategoria(nome){
+  return String(nome || "")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase().trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "sem-categoria";
+}
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
@@ -322,7 +332,7 @@ $("btn-seed").addEventListener("click", async () => {
   await carregarPainel();
   await popularSelectRedesLogin();
   btn.disabled = false;
-  btn.textContent = "Configurar as 8 redes iniciais";
+  btn.textContent = `Configurar as ${REDES_PADRAO.length} redes iniciais`;
   toast("Redes configuradas com sucesso.");
 });
 
@@ -465,8 +475,8 @@ async function carregarPainel(){
   const resumo = montarResumo(redes, escopoAtual);
   ultimoResumo = resumo;
 
-  // Ordem preferida: Jovens e Adolescentes primeiro, depois qualquer outra
-  // categoria (ex.: Adultos) na ordem em que aparecer nas redes cadastradas.
+  // Ordem preferida primeiro; depois qualquer outra categoria (Ágape, Sal da
+  // Terra etc.) na ordem em que aparecer nas redes cadastradas.
   const ordemPreferida = ["Jovens", "Adolescentes"];
   const categoriasExistentes = [...new Set(resumo.redes.map(r => r.categoria))];
   const categorias = [
@@ -479,13 +489,17 @@ async function carregarPainel(){
     const redesCategoria = resumo.redes.filter(r => r.categoria === categoria);
     if (redesCategoria.length === 0) continue;
 
+    const cls = classeCategoria(categoria);
+    const lider = CATEGORIA_LIDERES?.[categoria];
+    const liderHtml = lider ? ` <span class="categoria-lider">${escapar(lider)}</span>` : "";
+
     const blocoCategoria = document.createElement("div");
     blocoCategoria.className = "categoria-bloco";
-    blocoCategoria.innerHTML = `<h2 class="categoria-titulo ${categoria.toLowerCase()}">${categoria}</h2>`;
+    blocoCategoria.innerHTML = `<h2 class="categoria-titulo ${cls}">${escapar(categoria)}${liderHtml}</h2>`;
 
     for (const rede of redesCategoria){
       const redeBloco = document.createElement("div");
-      redeBloco.className = `rede-bloco ${categoria.toLowerCase()}`;
+      redeBloco.className = `rede-bloco ${cls}`;
 
       const celulasHtml = rede.celulas.map(celula => {
         const chaveCel = `cel:${rede.id}:${celula.id}`;
@@ -565,7 +579,7 @@ function montarComparativoCategorias(totalPorCategoria){
   wrap.innerHTML = entradas.map(([nome, valor]) => `
     <div class="comparativo-linha">
       <span class="comparativo-nome">${escapar(nome)}</span>
-      <div class="comparativo-trilho"><div class="comparativo-preenchimento ${nome.toLowerCase()}" style="width:${Math.round((valor / maior) * 100)}%"></div></div>
+      <div class="comparativo-trilho"><div class="comparativo-preenchimento ${classeCategoria(nome)}" style="width:${Math.round((valor / maior) * 100)}%"></div></div>
       <span class="comparativo-valor">${formatarMinutos(valor)}</span>
     </div>
   `).join("");
@@ -611,7 +625,7 @@ function renderizarTelao(){
   // Jovens x Adolescentes no topo
   const lado = $("telao-hero-lado");
   lado.innerHTML = Object.entries(r.porCategoria).map(([nome, valor]) => `
-    <div class="telao-mini ${nome.toLowerCase()}">
+    <div class="telao-mini ${classeCategoria(nome)}">
       <span class="rotulo">${escapar(nome)}</span>
       <span class="valor">${formatarMinutos(valor)}</span>
     </div>`).join("");
@@ -623,7 +637,7 @@ function renderizarTelao(){
       <span class="telao-pos">${i + 1}</span>
       <div class="telao-linha-meio">
         <div class="telao-linha-nome">${escapar(rede.nome)} <span class="sub">${escapar(rede.categoria)}</span></div>
-        <div class="telao-trilho"><div class="telao-preenchimento ${rede.categoria.toLowerCase()}" style="width:${Math.round((rede.total / maiorRede) * 100)}%"></div></div>
+        <div class="telao-trilho"><div class="telao-preenchimento ${classeCategoria(rede.categoria)}" style="width:${Math.round((rede.total / maiorRede) * 100)}%"></div></div>
       </div>
       <span class="telao-linha-valor">${formatarMinutos(rede.total)}</span>
     </div>`).join("") : `<p class="telao-vazio">Nenhuma rede cadastrada.</p>`;
@@ -659,7 +673,7 @@ function renderizarTelaoCelulas(){
       <span class="telao-pos">${pos}</span>
       <div class="telao-linha-meio">
         <div class="telao-linha-nome">${escapar(c.nome)} <span class="sub">${escapar(c.redeNome)}</span></div>
-        <div class="telao-trilho"><div class="telao-preenchimento ${c.categoria.toLowerCase()}" style="width:${Math.round((c.total / maior) * 100)}%"></div></div>
+        <div class="telao-trilho"><div class="telao-preenchimento ${classeCategoria(c.categoria)}" style="width:${Math.round((c.total / maior) * 100)}%"></div></div>
       </div>
       <span class="telao-linha-valor">${formatarMinutos(c.total)}</span>
     </div>`;

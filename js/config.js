@@ -5,12 +5,12 @@
 //    do arquivo firestore.rules que está na raiz deste pacote.
 
 export const firebaseConfig = {
-  apiKey: "AIzaSyAELFTOVl-biGBhGCxIGZ6T6mqkVwR5JdQ",
-  authDomain: "vide-47402.firebaseapp.com",
-  projectId: "vide-47402",
-  storageBucket: "vide-47402.firebasestorage.app",
-  messagingSenderId: "741435220435",
-  appId: "1:741435220435:web:09bd3f69148d5f0d120f26"
+  apiKey: "AIzaSyCSALxFBcDTtMwx83MeV187fzXFweOYF9M",
+  authDomain: "vide-de619.firebaseapp.com",
+  projectId: "vide-de619",
+  storageBucket: "vide-de619.firebasestorage.app",
+  messagingSenderId: "126009883048",
+  appId: "1:126009883048:web:8d31a3fab7a4506b08059d"
 };
 
 // Data do Dia 1 do jejum (formato AAAA-MM-DD). Ajuste se necessário.
@@ -31,18 +31,37 @@ export const IGREJA_LOGO = "img/logo-videira.png";
 // pode trocar depois de entrar). "logo" é opcional: caminho de uma imagem
 // para aparecer ao lado do nome da rede no Painel e na Área do discipulador.
 export const REDES_PADRAO = [
-  { id: "tena",       nome: "Teená",      categoria: "Adolescentes", pin: "1111" },
-  { id: "ekballo",    nome: "Ekballo",    categoria: "Adolescentes", pin: "2222" },
-  { id: "lakad",      nome: "Lakad",      categoria: "Adolescentes", pin: "3333" },
-  { id: "sozo",       nome: "Sozo",       categoria: "Jovens",       pin: "4444", logo: "img/logo-sozo.png" },
-  { id: "zoe",        nome: "Zoe",        categoria: "Jovens",       pin: "5555" },
-  { id: "chosen",     nome: "Chosen",     categoria: "Jovens",       pin: "6666" },
-  { id: "agape",      nome: "Rede Ágape (Pr. Edson Pai)",     categoria: "Adultos", pin: "7777" },
-  { id: "saldaterra", nome: "Rede Sal da Terra (Ob. Josemar)", categoria: "Adultos", pin: "8888" }
+  { id: "tena",    nome: "Teená",   categoria: "Adolescentes", pin: "1111" },
+  { id: "ekballo", nome: "Ekballo", categoria: "Adolescentes", pin: "2222" },
+  { id: "lakad",   nome: "Lakad",   categoria: "Adolescentes", pin: "3333" },
+  { id: "sozo",    nome: "Sozo",    categoria: "Jovens",       pin: "4444", logo: "img/logo-sozo.png" },
+  { id: "zoe",     nome: "Zoe",     categoria: "Jovens",       pin: "5555" },
+  { id: "chosen",  nome: "Chosen",  categoria: "Jovens",       pin: "6666" },
+
+  // --- Ágape (adultos) — cada casal lidera uma rede própria ---
+  { id: "agape-jean",     nome: "Jean e Patrícia",   categoria: "Ágape", pin: "7001" },
+  { id: "agape-marco",    nome: "Marco e Viviane",   categoria: "Ágape", pin: "7002" },
+  { id: "agape-jeferson", nome: "Jeferson e Aline",  categoria: "Ágape", pin: "7003" },
+  { id: "agape-isaqueu",  nome: "Isaqueu e Andréia", categoria: "Ágape", pin: "7004" },
+  { id: "agape-ivo",      nome: "Ivo e Dani",        categoria: "Ágape", pin: "7005" },
+
+  // --- Sal da Terra (adultos) — cada casal lidera uma rede própria ---
+  { id: "sal-henrique", nome: "Henrique e Daiana", categoria: "Sal da Terra", pin: "8001" },
+  { id: "sal-luiz",     nome: "Luiz e Magda",      categoria: "Sal da Terra", pin: "8002" },
+  { id: "sal-michel",   nome: "Michel e Bruna",    categoria: "Sal da Terra", pin: "8003" },
+  { id: "sal-djaime",   nome: "Djaime e Vilma",    categoria: "Sal da Terra", pin: "8004" }
 ];
 
-// PIN mestre: entra na Área do discipulador com acesso às 6 redes (troca
-// entre elas sem precisar sair e logar de novo). Também pode ser trocado
-// depois de logado, na própria tela. É criado junto com as 6 redes no
-// primeiro uso ("Configurar as 6 redes iniciais").
+// Nome de quem lidera cada categoria/supervisão. Aparece em letra menor ao
+// lado do título da categoria no Painel. Categoria sem entrada aqui só
+// mostra o nome dela mesmo.
+export const CATEGORIA_LIDERES = {
+  "Ágape": "Pr. Edson Pai",
+  "Sal da Terra": "Ob. Josemar"
+};
+
+// PIN mestre: entra na Área do discipulador com acesso a todas as redes
+// (troca entre elas sem precisar sair e logar de novo). Também pode ser
+// trocado depois de logado, na própria tela. É criado junto com as redes no
+// primeiro uso ("Configurar as redes iniciais").
 export const ADMIN_PIN_PADRAO = "0000";

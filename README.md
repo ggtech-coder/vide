@@ -1,7 +1,7 @@
 # Relógio de Oração — Jejum 21 Dias
 
 Sistema simples para substituir a lista manual no WhatsApp/papel. Sem
-cadastro de usuário burocrático: cada uma das 8 redes tem um PIN próprio,
+cadastro de usuário burocrático: cada rede tem um PIN próprio,
 o discipulador entra com esse PIN e só mexe na sua rede. Existe também um
 **PIN administrador**, que dá acesso a todas as redes de uma vez.
 
@@ -18,9 +18,10 @@ o discipulador entra com esse PIN e só mexe na sua rede. Existe também um
 ## Primeiro uso
 
 Abra o site publicado. Como o banco está vazio, vai aparecer um aviso no
-Painel: **"Configurar as 8 redes iniciais"**. Clique uma vez só — isso cria
-Teená, Ekballo, Lakad, Sozo, Zoe, Chosen, Ágape e Sal da Terra (cada uma com
-um PIN padrão, veja `js/config.js` → `REDES_PADRAO`) e também o **PIN
+Painel: **"Configurar as redes iniciais"**. Clique uma vez só — isso cria
+todas as redes de uma vez — Teená, Ekballo, Lakad, Sozo, Zoe, Chosen e as
+9 redes de adultos das supervisões Ágape e Sal da Terra (cada uma com um PIN
+padrão, veja `js/config.js` → `REDES_PADRAO`) e também o **PIN
 administrador** padrão (`js/config.js` → `ADMIN_PIN_PADRAO`). Avise cada
 discipulador do PIN dele e oriente a trocar na aba "Área do discipulador >
 Trocar o PIN desta rede". Troque também o PIN administrador assim que
@@ -29,11 +30,9 @@ possível (ver abaixo).
 > Atenção: o botão "Configurar as redes iniciais" só aparece quando o banco
 > ainda está **vazio** (nenhuma rede cadastrada). Se você já tinha rodado o
 > seed antes de adicionar Ágape e Sal da Terra, esse botão não vai aparecer
-> de novo. Nesse caso, entre como administrador e use "Redefinir PIN de uma
-> rede" — se a rede ainda não existir lá, peça para alguém criar os dois
-> documentos que faltam direto no Firestore Console, em `redes/agape` e
-> `redes/saldaterra`, com os campos `nome`, `categoria: "Adultos"` e `pin`
-> (os mesmos valores que estão em `REDES_PADRAO`).
+> de novo. Nesse caso, crie os documentos que faltam direto no Firestore
+> Console: um documento em `redes/{id}` para cada rede nova, com os campos
+> `nome`, `categoria` e `pin` exatamente como estão em `REDES_PADRAO`.
 
 ## Uso no dia a dia
 
@@ -110,35 +109,45 @@ dá pra evoluir para Firebase Auth com uma conta por discipulador.
 
 - `js/config.js`: data de início do jejum, tema, logo da igreja, PIN
   administrador padrão, e a lista de redes/PINs/logos iniciais.
-- Categorias hoje são "Jovens", "Adolescentes" e "Adultos" (Ágape e Sal da
-  Terra) — se mudar os nomes das redes no futuro, é só editar os documentos
-  em `redes/{id}` direto no Firestore (não precisa mexer no código).
+- Categorias hoje são "Jovens", "Adolescentes", "Ágape" e "Sal da Terra"
+  (as duas últimas são as supervisões de adultos) — se mudar os nomes das
+  redes no futuro, é só editar os documentos em `redes/{id}` direto no
+  Firestore (não precisa mexer no código).
+- Para dar cor própria a uma categoria nova, olhe em `css/style.css` as
+  regras `.agape` / `.sal-da-terra` e copie o mesmo padrão.
 
-## Redes de adultos (Ágape e Sal da Terra) e suas células
+## Adultos — Ágape e Sal da Terra
 
-As duas redes novas já estão em `js/config.js` → `REDES_PADRAO`:
+Ágape e Sal da Terra são **supervisões**: dentro delas, cada casal lidera uma
+**rede** própria. Por isso cada casal entrou em `js/config.js` →
+`REDES_PADRAO` como uma rede, com PIN próprio, e o nome da supervisão foi
+usado no campo `categoria` (é o que agrupa as redes no Painel, do mesmo jeito
+que "Jovens" e "Adolescentes"). O nome do líder da supervisão fica em
+`CATEGORIA_LIDERES` e aparece em letra menor ao lado do título.
 
-| Rede | Líder | PIN padrão |
-|---|---|---|
-| Rede Ágape | Pr. Edson Pai | `7777` |
-| Rede Sal da Terra | Ob. Josemar | `8888` |
+**Ágape — Pr. Edson Pai**
 
-**As células (casais) não ficam no código** — elas são cadastradas pelo
-próprio discipulador dentro do app, na aba "Área do discipulador", depois
-de entrar com o PIN da rede (ou pelo acesso administrador). Isso porque
-células e membros moram no Firestore, não no arquivo de configuração.
-Passo a passo: entre com o PIN da rede → "Criar célula" → digite o nome →
-repita para cada casal abaixo. Sugestão de nomes para cadastrar:
+| Rede (casal) | PIN padrão |
+|---|---|
+| Jean e Patrícia | `7001` |
+| Marco e Viviane | `7002` |
+| Jeferson e Aline | `7003` |
+| Isaqueu e Andréia | `7004` |
+| Ivo e Dani | `7005` |
 
-**Rede Ágape (Pr. Edson Pai):**
-- Jean e Patrícia
-- Marco e Viviane
-- Jeferson e Aline
-- Isaqueu e Andréia
-- Ivo e Dani
+**Sal da Terra — Ob. Josemar**
 
-**Rede Sal da Terra (Ob. Josemar):**
-- Henrique e Daiana
-- Luiz e Magda
-- Michel e Bruna
-- Djaime e Vilma
+| Rede (casal) | PIN padrão |
+|---|---|
+| Henrique e Daiana | `8001` |
+| Luiz e Magda | `8002` |
+| Michel e Bruna | `8003` |
+| Djaime e Vilma | `8004` |
+
+Cada casal entra com o PIN dele e só enxerga a própria rede. Dentro dela,
+ele mesmo cadastra as **células** e os membros pela aba "Área do
+discipulador" — células e membros ficam no Firestore, não no código, então
+não dá para deixá-las prontas pelo arquivo de configuração.
+
+Oriente cada casal a trocar o PIN assim que entrar ("Trocar o PIN desta
+rede"). Se alguém esquecer, o acesso administrador redefine.
