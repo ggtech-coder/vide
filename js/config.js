@@ -5,13 +5,14 @@
 //    do arquivo firestore.rules que está na raiz deste pacote.
 
 export const firebaseConfig = {
-  apiKey: "AIzaSyAELFTOVl-biGBhGCxIGZ6T6mqkVwR5JdQ",
-  authDomain: "vide-47402.firebaseapp.com",
-  projectId: "vide-47402",
-  storageBucket: "vide-47402.firebasestorage.app",
-  messagingSenderId: "741435220435",
-  appId: "1:741435220435:web:09bd3f69148d5f0d120f26"
+  apiKey: "AIzaSyCSALxFBcDTtMwx83MeV187fzXFweOYF9M",
+  authDomain: "vide-de619.firebaseapp.com",
+  projectId: "vide-de619",
+  storageBucket: "vide-de619.firebasestorage.app",
+  messagingSenderId: "126009883048",
+  appId: "1:126009883048:web:8d31a3fab7a4506b08059d"
 };
+
 // Data do Dia 1 do jejum (formato AAAA-MM-DD). Ajuste se necessário.
 export const JEJUM_INICIO = "2026-09-14";
 
@@ -30,6 +31,52 @@ export const IGREJA_LOGO = "img/logo-videira.png";
 // pode trocar depois de entrar). "logo" é opcional: caminho de uma imagem
 // para aparecer ao lado do nome da rede no Painel e na Área do discipulador.
 export const REDES_PADRAO = [
+  // --- Liderança ---
+  {
+    id: "presbiterio",
+    nome: "Presbitério",
+    categoria: "Liderança",
+    pin: "9999",
+    // "celulas" é opcional: quando existe, o sistema consegue criar as
+    // células e os membros dessa rede já prontos (no primeiro uso, ou pelo
+    // botão "Criar células e membros padrão" na Área do discipulador).
+    celulas: [
+      {
+        nome: "Pastores e obreiros",
+        membros: [
+          "Pr. Rogério",
+          "Pr.ª Irlena",
+          "Pr. Edson Filho",
+          "Pr.ª Marcela",
+          "Pr. Edson Pai",
+          "Pr.ª Nice",
+          "Ob. Josemar",
+          "Ob.ª (esposa do Josemar)"
+        ]
+      },
+      {
+        nome: "Discipuladores",
+        membros: [
+          "Andrew e Joyce",
+          "Vinícius e Emily",
+          "Eduardo e Marcella",
+          "David e Malu",
+          "Gabriel e Geovana",
+          "Gabriel e Milena",
+          "Henrique e Daiana",
+          "Luiz e Magda",
+          "Michel e Bruna",
+          "Djaime e Vilma",
+          "Jean e Patrícia",
+          "Marco e Viviane",
+          "Jeferson e Aline",
+          "Isaqueu e Andréia",
+          "Ivo e Dani"
+        ]
+      }
+    ]
+  },
+
   { id: "tena",    nome: "Teená",   categoria: "Adolescentes", pin: "1111" },
   { id: "ekballo", nome: "Ekballo", categoria: "Adolescentes", pin: "2222" },
   { id: "lakad",   nome: "Lakad",   categoria: "Adolescentes", pin: "3333" },

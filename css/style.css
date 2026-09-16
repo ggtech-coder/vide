@@ -335,6 +335,7 @@ main{ max-width: 760px; margin: 0 auto; padding: 1.5rem 1.25rem 4rem; }
 .comparativo-preenchimento{ height:100%; border-radius: 999px; transition: width .6s cubic-bezier(.2,.8,.2,1); }
 .comparativo-preenchimento.jovens{ background: var(--verde); }
 .comparativo-preenchimento.adolescentes{ background: var(--azul); }
+.comparativo-preenchimento.lideranca{ background: var(--tinta-media); }
 .comparativo-preenchimento.agape{ background: var(--roxo); }
 .comparativo-preenchimento.sal-da-terra{ background: var(--ambar); }
 .comparativo-valor{
@@ -385,6 +386,7 @@ main{ max-width: 760px; margin: 0 auto; padding: 1.5rem 1.25rem 4rem; }
 .categoria-titulo::after{ content:""; flex:1; height:1px; background: var(--borda); }
 .categoria-titulo.jovens{ color: var(--verde); }
 .categoria-titulo.adolescentes{ color: var(--azul); }
+.categoria-titulo.lideranca{ color: var(--tinta-media); }
 .categoria-titulo.agape{ color: var(--roxo); }
 .categoria-titulo.sal-da-terra{ color: var(--ambar); }
 
@@ -406,11 +408,13 @@ main{ max-width: 760px; margin: 0 auto; padding: 1.5rem 1.25rem 4rem; }
   color: var(--verde);
 }
 .rede-bloco.adolescentes .rede-total{ color: var(--azul); }
+.rede-bloco.lideranca .rede-total{ color: var(--tinta-media); }
 .rede-bloco.agape .rede-total{ color: var(--roxo); }
 .rede-bloco.sal-da-terra .rede-total{ color: var(--ambar); }
 .rede-barra{ height: 10px; border-radius: 999px; background: var(--trilho); overflow:hidden; }
 .rede-barra-preenchimento{ height:100%; border-radius: 999px; background: var(--verde); transition: width .6s cubic-bezier(.2,.8,.2,1); }
 .rede-bloco.adolescentes .rede-barra-preenchimento{ background: var(--azul); }
+.rede-bloco.lideranca .rede-barra-preenchimento{ background: var(--tinta-media); }
 .rede-bloco.agape .rede-barra-preenchimento{ background: var(--roxo); }
 .rede-bloco.sal-da-terra .rede-barra-preenchimento{ background: var(--ambar); }
 
@@ -862,6 +866,7 @@ html[data-tema="escuro"] body.telao{
 }
 .telao-mini.jovens .valor{ color: var(--verde); }
 .telao-mini.adolescentes .valor{ color: var(--azul); }
+.telao-mini.lideranca .valor{ color: var(--tinta-media); }
 .telao-mini.agape .valor{ color: var(--roxo); }
 .telao-mini.sal-da-terra .valor{ color: var(--ambar); }
 
@@ -881,7 +886,8 @@ html[data-tema="escuro"] body.telao{
   letter-spacing:.13em; text-transform:uppercase; color: var(--tinta-suave);
   flex:0 0 auto;
 }
-.telao-coluna-titulo::after{ content:""; flex:1; height:1px; background: var(--borda); }
+.telao-coluna-titulo::after{ content:""; flex:1; height:1px; background: var(--borda); order: 5; }
+.telao-rolar-grupo{ order: 9; }
 .telao-coluna-titulo .pagina{
   font-size: clamp(.58rem,1vh,.74rem); color: var(--verde); letter-spacing:.08em;
 }
@@ -889,8 +895,40 @@ html[data-tema="escuro"] body.telao{
   flex:1 1 auto; min-height:0;
   display:flex; flex-direction:column;
   gap: clamp(.35rem, .9vh, .85rem);
-  overflow:hidden;
+  overflow-y: auto; overflow-x: hidden;
+  scrollbar-width: none;            /* some com a barra na projeção */
+  -ms-overflow-style: none;
+  scroll-behavior: auto;
+  outline: none;
+  /* desbota as pontas, para o corte da rolagem não ficar seco */
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
+          mask-image: linear-gradient(to bottom, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
 }
+.telao-lista::-webkit-scrollbar{ width:0; height:0; }
+.telao-linha{ flex: 0 0 auto; }
+
+/* Botões ▲ ▼ de cada coluna — só aparecem quando a lista não cabe */
+.telao-rolar-grupo{ display:none; gap:.25rem; margin-left:.1rem; }
+.telao-coluna.tem-rolagem .telao-rolar-grupo{ display:inline-flex; }
+.telao-rolar{
+  background: var(--papel-3); border:1px solid var(--borda);
+  color: var(--tinta-suave); cursor:pointer;
+  border-radius:.4rem; line-height:1;
+  padding: .18rem .4rem;
+  font-size: clamp(.55rem, 1vh, .72rem);
+}
+.telao-rolar:hover{ border-color: var(--verde); color: var(--verde); }
+.telao-rolar:active{ transform: translateY(1px); }
+
+.telao-pausa{
+  background: var(--papel-3); border:1px solid var(--borda);
+  color: var(--tinta-suave); cursor:pointer;
+  border-radius:.4rem; line-height:1; padding:.15rem .4rem;
+  font-size: inherit;
+}
+.telao-pausa:hover{ border-color: var(--verde); color: var(--verde); }
+.telao-rolagem-status{ opacity:.75; }
+.telao-rolagem-status.manual{ color: var(--verde); opacity:1; font-weight:700; }
 .telao-linha{
   display:grid;
   grid-template-columns: auto minmax(0,1fr) auto;
@@ -922,6 +960,7 @@ html[data-tema="escuro"] body.telao{
 .telao-trilho{ height: clamp(6px, 1.1vh, 11px); background: var(--trilho); border-radius:999px; overflow:hidden; }
 .telao-preenchimento{ height:100%; border-radius:999px; background: var(--verde); transition: width .7s cubic-bezier(.2,.8,.2,1); }
 .telao-preenchimento.adolescentes{ background: var(--azul); }
+.telao-preenchimento.lideranca{ background: var(--tinta-media); }
 .telao-preenchimento.agape{ background: var(--roxo); }
 .telao-preenchimento.sal-da-terra{ background: var(--ambar); }
 .telao-linha-valor{
@@ -966,3 +1005,19 @@ html[data-tema="escuro"] body.telao{
 @media (max-width: 900px){
   body.telao .telao-corpo{ grid-template-columns: minmax(0,1fr); grid-template-rows: auto minmax(0,1fr) minmax(0,1fr); overflow:auto; }
 }
+
+
+/* ===================== IMPORTAR ESTRUTURA PADRÃO ===================== */
+.importar-padrao{
+  display:flex; align-items:center; justify-content:space-between;
+  gap: .9rem; flex-wrap: wrap;
+  background: var(--verde-claro);
+  border: 1px solid var(--verde-borda);
+  border-radius: var(--raio);
+  padding: .85rem 1rem;
+  margin-bottom: .9rem;
+  font-size: .9rem;
+}
+.importar-padrao strong{ display:block; margin-bottom:.15rem; }
+.importar-padrao span{ color: var(--tinta-suave); font-size: .85rem; }
+.importar-padrao .botao{ flex: 0 0 auto; }

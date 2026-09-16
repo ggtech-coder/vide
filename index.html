@@ -165,6 +165,14 @@
         <button type="button" id="dia-lanc-hoje" class="link-botao">ir para hoje</button>
       </div>
 
+      <div id="importar-padrao-wrap" class="importar-padrao oculto">
+        <div>
+          <strong>Esta rede tem uma lista pronta de células e membros.</strong>
+          <span id="importar-padrao-detalhe">—</span>
+        </div>
+        <button type="button" id="btn-importar-padrao" class="botao botao-secundario">Criar células e membros padrão</button>
+      </div>
+
       <form id="form-celula" class="form-inline">
         <input type="text" id="nome-celula" placeholder="Nome da nova célula" required>
         <button type="submit" class="botao botao-principal">Adicionar célula</button>
@@ -212,20 +220,37 @@
     </div>
 
     <div class="telao-coluna">
-      <h3 class="telao-coluna-titulo">Redes</h3>
-      <div class="telao-lista" id="telao-redes"></div>
+      <h3 class="telao-coluna-titulo">
+        Redes <span class="pagina" id="telao-redes-qtd"></span>
+        <span class="telao-rolar-grupo">
+          <button type="button" class="telao-rolar" data-rolar="telao-redes" data-dir="-1" aria-label="Subir lista de redes">▲</button>
+          <button type="button" class="telao-rolar" data-rolar="telao-redes" data-dir="1" aria-label="Descer lista de redes">▼</button>
+        </span>
+      </h3>
+      <div class="telao-lista" id="telao-redes" tabindex="0"></div>
     </div>
 
     <div class="telao-coluna">
-      <h3 class="telao-coluna-titulo">Células <span class="pagina" id="telao-celulas-pagina"></span></h3>
-      <div class="telao-lista" id="telao-celulas"></div>
+      <h3 class="telao-coluna-titulo">
+        Células <span class="pagina" id="telao-celulas-qtd"></span>
+        <span class="telao-rolar-grupo">
+          <button type="button" class="telao-rolar" data-rolar="telao-celulas" data-dir="-1" aria-label="Subir lista de células">▲</button>
+          <button type="button" class="telao-rolar" data-rolar="telao-celulas" data-dir="1" aria-label="Descer lista de células">▼</button>
+        </span>
+      </h3>
+      <div class="telao-lista" id="telao-celulas" tabindex="0"></div>
     </div>
 
   </div>
 
   <div class="telao-rodape">
     <div class="telao-grafico" id="telao-grafico"></div>
-    <div class="telao-dica"><span class="pulso-ao-vivo" aria-hidden="true"></span><span id="telao-atualizado">—</span> · T ou Esc para sair</div>
+    <div class="telao-dica">
+      <span class="pulso-ao-vivo" aria-hidden="true"></span><span id="telao-atualizado">—</span>
+      · <button type="button" id="btn-telao-pausa" class="telao-pausa" title="Pausar a rolagem automática">⏸</button>
+      <span id="telao-rolagem-status" class="telao-rolagem-status">rolando sozinho</span>
+      · ↑ ↓ rolam · T ou Esc para sair
+    </div>
   </div>
 
 </div>

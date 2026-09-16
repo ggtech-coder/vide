@@ -320,12 +320,50 @@ async function verificarSeed(){
   $("seed-aviso").classList.toggle("oculto", !redesSnap.empty);
 }
 
+// Cria, para uma rede, as células e membros descritos em REDES_PADRAO.
+// Só cria o que está faltando (compara pelo nome, ignorando maiúsculas e
+// acentos), então pode rodar de novo sem duplicar nada.
+function chaveNome(s){
+  return String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+}
+
+async function importarEstruturaPadrao(redeId){
+  const padrao = REDES_PADRAO.find(r => r.id === redeId);
+  if (!padrao?.celulas?.length) return { celulas: 0, membros: 0 };
+
+  let novasCelulas = 0, novosMembros = 0;
+
+  const celulasSnap = await getDocs(collection(db, "redes", redeId, "celulas"));
+  const existentes = new Map(celulasSnap.docs.map(d => [chaveNome(d.data().nome), d.id]));
+
+  for (const cel of padrao.celulas){
+    let celulaId = existentes.get(chaveNome(cel.nome));
+    if (!celulaId){
+      const ref = await addDoc(collection(db, "redes", redeId, "celulas"), { nome: cel.nome });
+      celulaId = ref.id;
+      novasCelulas++;
+    }
+
+    const membrosSnap = await getDocs(collection(db, "redes", redeId, "celulas", celulaId, "membros"));
+    const jaTem = new Set(membrosSnap.docs.map(d => chaveNome(d.data().nome)));
+
+    for (const nome of (cel.membros || [])){
+      if (jaTem.has(chaveNome(nome))) continue;
+      await addDoc(collection(db, "redes", redeId, "celulas", celulaId, "membros"), { nome });
+      novosMembros++;
+    }
+  }
+
+  return { celulas: novasCelulas, membros: novosMembros };
+}
+
 $("btn-seed").addEventListener("click", async () => {
   const btn = $("btn-seed");
   btn.disabled = true;
   btn.textContent = "Configurando…";
   for (const r of REDES_PADRAO){
     await setDoc(doc(db, "redes", r.id), { nome: r.nome, categoria: r.categoria, pin: r.pin });
+    if (r.celulas?.length) await importarEstruturaPadrao(r.id);
   }
   await setDoc(doc(db, "config", "admin"), { pin: ADMIN_PIN_PADRAO }, { merge: true });
   await verificarSeed();
@@ -377,6 +415,10 @@ document.addEventListener("keydown", (e) => {
   if (!noTelao && !$("tab-painel").classList.contains("ativo")) return;
   if (e.key === "ArrowLeft" && escopoAtual !== "todos") irParaDia(diaPainel - 1);
   if (e.key === "ArrowRight" && escopoAtual !== "todos") irParaDia(diaPainel + 1);
+  // No telão, ↑ ↓ (e PageUp/PageDown) rolam as listas na mão
+  if (noTelao && (e.key === "ArrowUp" || e.key === "PageUp")){ e.preventDefault(); rolarTelao(-1); }
+  if (noTelao && (e.key === "ArrowDown" || e.key === "PageDown")){ e.preventDefault(); rolarTelao(1); }
+  if (noTelao && (e.key === " " || e.key === "Spacebar")){ e.preventDefault(); alternarPausaTelao(); }
   if (e.key.toLowerCase() === "t") alternarTelao();
   // Em tela cheia o próprio navegador trata o Esc (e o fullscreenchange
   // já desliga o telão); aqui só cobre o caso de não estar em tela cheia.
@@ -477,7 +519,7 @@ async function carregarPainel(){
 
   // Ordem preferida primeiro; depois qualquer outra categoria (Ágape, Sal da
   // Terra etc.) na ordem em que aparecer nas redes cadastradas.
-  const ordemPreferida = ["Jovens", "Adolescentes"];
+  const ordemPreferida = ["Liderança", "Jovens", "Adolescentes"];
   const categoriasExistentes = [...new Set(resumo.redes.map(r => r.categoria))];
   const categorias = [
     ...ordemPreferida.filter(c => categoriasExistentes.includes(c)),
@@ -607,10 +649,99 @@ $("btn-recolher-tudo").addEventListener("click", () => {
 // 21 dias no rodapé.
 // =====================================================================
 
-const CELULAS_POR_PAGINA = 6;
-let paginaCelulas = 0;
-let telaoRotacaoTimer = null;
+// Listas do telão: mostram TODO mundo e rolam sozinhas quando não cabe na
+// tela (vai até o fim, espera, e volta). Dá para assumir o controle a
+// qualquer momento com as setas ↑ ↓, a rodinha do mouse ou os botões ▲ ▼ —
+// nesse caso a rolagem automática fica pausada por um tempo e volta
+// sozinha depois.
+const TELAO_VELOCIDADE = 0.35;      // pixels por quadro (~21 px/s)
+const TELAO_ESPERA_PONTA = 2800;    // pausa ao chegar no topo/fim (ms)
+const TELAO_PAUSA_MANUAL = 25000;   // quanto tempo o automático espera (ms)
+
 let telaoRelogioTimer = null;
+let telaoRAF = null;
+let telaoPausadoAte = 0;
+let telaoPausaFixa = false;         // pausa ligada/desligada pelo usuário
+const telaoDirecao = new WeakMap();
+const telaoEsperaAte = new WeakMap();
+
+function listasTelao(){
+  return [$("telao-redes"), $("telao-celulas")].filter(Boolean);
+}
+
+// Troca o conteúdo de uma lista sem perder onde a pessoa estava lendo
+// (o painel se atualiza sozinho a cada 20s).
+function trocarConteudoLista(el, html){
+  const antes = el.scrollTop;
+  el.innerHTML = html;
+  el.scrollTop = Math.min(antes, Math.max(0, el.scrollHeight - el.clientHeight));
+}
+
+function pausarRolagemTelao(ms = TELAO_PAUSA_MANUAL){
+  telaoPausadoAte = performance.now() + ms;
+  atualizarStatusRolagem();
+}
+
+function alternarPausaTelao(){
+  telaoPausaFixa = !telaoPausaFixa;
+  telaoPausadoAte = 0;
+  atualizarStatusRolagem();
+}
+
+function atualizarStatusRolagem(){
+  const el = $("telao-rolagem-status");
+  if (!el) return;
+  const manual = telaoPausaFixa || performance.now() < telaoPausadoAte;
+  el.textContent = manual ? "rolagem manual" : "rolando sozinho";
+  el.classList.toggle("manual", manual);
+  const btn = $("btn-telao-pausa");
+  if (btn){
+    btn.textContent = telaoPausaFixa ? "▶" : "⏸";
+    btn.title = telaoPausaFixa ? "Voltar a rolar sozinho" : "Pausar a rolagem automática";
+  }
+}
+
+function rolarLista(el, direcao){
+  if (!el) return;
+  const passo = Math.max(70, el.clientHeight * 0.45);
+  el.scrollBy({ top: direcao * passo, behavior: reduzMovimento ? "auto" : "smooth" });
+  telaoDirecao.set(el, direcao >= 0 ? 1 : -1);
+  pausarRolagemTelao();
+}
+
+function rolarTelao(direcao){
+  listasTelao().forEach(el => {
+    if (el.scrollHeight - el.clientHeight > 4) rolarLista(el, direcao);
+  });
+  pausarRolagemTelao();
+}
+
+function passoRolagemTelao(){
+  telaoRAF = requestAnimationFrame(passoRolagemTelao);
+  if (!document.body.classList.contains("telao")) return;
+
+  const agora = performance.now();
+  const automatico = !telaoPausaFixa && !reduzMovimento && agora >= telaoPausadoAte;
+
+  for (const el of listasTelao()){
+    const max = el.scrollHeight - el.clientHeight;
+    // Mostra os botões ▲ ▼ só quando a lista realmente não cabe
+    el.closest(".telao-coluna")?.classList.toggle("tem-rolagem", max > 4);
+    if (!automatico || max <= 4) continue;
+    if (agora < (telaoEsperaAte.get(el) || 0)) continue;
+
+    const dir = telaoDirecao.get(el) ?? 1;
+    el.scrollTop += dir * TELAO_VELOCIDADE;
+
+    if (dir > 0 && el.scrollTop >= max - 0.5){
+      telaoDirecao.set(el, -1);
+      telaoEsperaAte.set(el, agora + TELAO_ESPERA_PONTA);
+    } else if (dir < 0 && el.scrollTop <= 0.5){
+      telaoDirecao.set(el, 1);
+      telaoEsperaAte.set(el, agora + TELAO_ESPERA_PONTA);
+    }
+  }
+}
 
 function renderizarTelao(){
   if (!ultimoResumo) return;
@@ -622,7 +753,7 @@ function renderizarTelao(){
     : `Total de oração — Dia ${diaPainel} (${dataFromDia(diaPainel)})`;
   $("telao-hero-valor").textContent = formatarMinutos(r.totalGeral);
 
-  // Jovens x Adolescentes no topo
+  // Totais por categoria no topo
   const lado = $("telao-hero-lado");
   lado.innerHTML = Object.entries(r.porCategoria).map(([nome, valor]) => `
     <div class="telao-mini ${classeCategoria(nome)}">
@@ -630,9 +761,9 @@ function renderizarTelao(){
       <span class="valor">${formatarMinutos(valor)}</span>
     </div>`).join("");
 
-  // Ranking das redes
+  // Ranking das redes — todas, com rolagem
   const maiorRede = Math.max(1, ...r.redes.map(x => x.total));
-  $("telao-redes").innerHTML = r.redes.length ? r.redes.map((rede, i) => `
+  trocarConteudoLista($("telao-redes"), r.redes.length ? r.redes.map((rede, i) => `
     <div class="telao-linha ${i === 0 && rede.total > 0 ? "top1" : ""}">
       <span class="telao-pos">${i + 1}</span>
       <div class="telao-linha-meio">
@@ -640,17 +771,19 @@ function renderizarTelao(){
         <div class="telao-trilho"><div class="telao-preenchimento ${classeCategoria(rede.categoria)}" style="width:${Math.round((rede.total / maiorRede) * 100)}%"></div></div>
       </div>
       <span class="telao-linha-valor">${formatarMinutos(rede.total)}</span>
-    </div>`).join("") : `<p class="telao-vazio">Nenhuma rede cadastrada.</p>`;
+    </div>`).join("") : `<p class="telao-vazio">Nenhuma rede cadastrada.</p>`);
+  $("telao-redes-qtd").textContent = r.redes.length ? `${r.redes.length}` : "";
 
   renderizarTelaoCelulas();
   renderizarTelaoGrafico();
+  atualizarStatusRolagem();
 }
 
 function renderizarTelaoCelulas(){
   if (!ultimoResumo) return;
   const todas = ultimoResumo.celulas;
   const wrap = $("telao-celulas");
-  const rotulo = $("telao-celulas-pagina");
+  const rotulo = $("telao-celulas-qtd");
 
   if (!todas.length){
     wrap.innerHTML = `<p class="telao-vazio">Nenhuma célula cadastrada ainda.</p>`;
@@ -658,16 +791,11 @@ function renderizarTelaoCelulas(){
     return;
   }
 
-  const paginas = Math.ceil(todas.length / CELULAS_POR_PAGINA);
-  if (paginaCelulas >= paginas) paginaCelulas = 0;
-  rotulo.textContent = paginas > 1 ? `${paginaCelulas + 1}/${paginas}` : "";
-
-  const inicio = paginaCelulas * CELULAS_POR_PAGINA;
-  const fatia = todas.slice(inicio, inicio + CELULAS_POR_PAGINA);
+  rotulo.textContent = `${todas.length}`;
   const maior = Math.max(1, ...todas.map(c => c.total));
 
-  wrap.innerHTML = fatia.map((c, i) => {
-    const pos = inicio + i + 1;
+  trocarConteudoLista(wrap, todas.map((c, i) => {
+    const pos = i + 1;
     return `
     <div class="telao-linha ${pos === 1 && c.total > 0 ? "top1" : ""}">
       <span class="telao-pos">${pos}</span>
@@ -677,7 +805,7 @@ function renderizarTelaoCelulas(){
       </div>
       <span class="telao-linha-valor">${formatarMinutos(c.total)}</span>
     </div>`;
-  }).join("");
+  }).join(""));
 }
 
 function renderizarTelaoGrafico(){
@@ -697,6 +825,20 @@ function renderizarTelaoGrafico(){
   }).join("");
 }
 
+// Botões ▲ ▼ de cada coluna e botão de pausa
+document.querySelectorAll("[data-rolar]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    rolarLista($(btn.dataset.rolar), Number(btn.dataset.dir));
+  });
+});
+$("btn-telao-pausa").addEventListener("click", alternarPausaTelao);
+
+// Rodinha do mouse / dedo na tela também assume o controle
+listasTelao().forEach(el => {
+  el.addEventListener("wheel", () => pausarRolagemTelao(), { passive: true });
+  el.addEventListener("touchstart", () => pausarRolagemTelao(), { passive: true });
+});
+
 function atualizarRelogioTelao(){
   const agora = new Date();
   $("telao-relogio").textContent = agora.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
@@ -713,15 +855,14 @@ function alternarTelao(){
     renderizarTelao();
     atualizarRelogioTelao();
     telaoRelogioTimer = setInterval(atualizarRelogioTelao, 20000);
-    // Passa sozinho as páginas de células, quando há mais do que cabe na tela
-    telaoRotacaoTimer = setInterval(() => {
-      const paginas = Math.ceil((ultimoResumo?.celulas.length || 0) / CELULAS_POR_PAGINA);
-      if (paginas > 1){ paginaCelulas = (paginaCelulas + 1) % paginas; renderizarTelaoCelulas(); }
-    }, 12000);
+    telaoPausadoAte = 0;
+    listasTelao().forEach(el => { el.scrollTop = 0; telaoDirecao.set(el, 1); telaoEsperaAte.set(el, performance.now() + 4000); });
+    if (!telaoRAF) telaoRAF = requestAnimationFrame(passoRolagemTelao);
+    atualizarStatusRolagem();
     document.documentElement.requestFullscreen?.().catch(() => {});
   } else {
     clearInterval(telaoRelogioTimer); telaoRelogioTimer = null;
-    clearInterval(telaoRotacaoTimer); telaoRotacaoTimer = null;
+    if (telaoRAF){ cancelAnimationFrame(telaoRAF); telaoRAF = null; }
     if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
   }
 }
@@ -924,6 +1065,37 @@ $("dia-lanc-hoje").addEventListener("click", () => {
   atualizarRotuloDiaLancamento();
 });
 
+// ===================== ADMIN: ESTRUTURA PADRÃO =====================
+
+function atualizarAvisoImportar(){
+  const wrap = $("importar-padrao-wrap");
+  const padrao = REDES_PADRAO.find(r => r.id === redeLogada?.id);
+  if (!padrao?.celulas?.length){ wrap.classList.add("oculto"); return; }
+  wrap.classList.remove("oculto");
+  const qtdMembros = padrao.celulas.reduce((a, c) => a + (c.membros || []).length, 0);
+  $("importar-padrao-detalhe").textContent =
+    `${padrao.celulas.length} célula(s) e ${qtdMembros} membro(s). Cria só o que estiver faltando — pode clicar sem medo de duplicar.`;
+}
+
+$("btn-importar-padrao").addEventListener("click", async () => {
+  const btn = $("btn-importar-padrao");
+  btn.disabled = true;
+  const textoOriginal = btn.textContent;
+  btn.textContent = "Criando…";
+  try {
+    const r = await importarEstruturaPadrao(redeLogada.id);
+    await carregarAdmin();
+    await carregarPainel();
+    toast(r.celulas || r.membros
+      ? `Criado: ${r.celulas} célula(s) e ${r.membros} membro(s).`
+      : "Tudo já estava cadastrado — nada a criar.");
+  } catch(e){
+    toast("Não deu para criar agora. Tente de novo.");
+  }
+  btn.disabled = false;
+  btn.textContent = textoOriginal;
+});
+
 // ===================== ADMIN: CÉLULAS / MEMBROS / REGISTROS =====================
 
 $("form-celula").addEventListener("submit", async (e) => {
@@ -965,6 +1137,7 @@ function montarNavCelulas(celulas){
 
 async function carregarAdmin(){
   atualizarRotuloDiaLancamento();
+  atualizarAvisoImportar();
   const celulas = await buscarUmaRede(redeLogada.id);
   const lista = $("lista-celulas");
   const tplCelula = $("tpl-celula-admin");

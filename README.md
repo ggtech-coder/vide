@@ -54,8 +54,14 @@ possível (ver abaixo).
   projeção, com:
   - o total de oração em número gigante, com Jovens x Adolescentes ao lado;
   - **ranking das redes**, com barra proporcional e tempo de cada uma;
-  - **ranking das células** (as que mais oraram primeiro). Quando há mais
-    células do que cabe na tela, ele passa as páginas sozinho a cada 12s;
+  - **ranking das células** (as que mais oraram primeiro);
+  As duas listas mostram **todo mundo** e, quando não cabe na tela, rolam
+  sozinhas de cima a baixo e voltam. Dá para assumir o controle a qualquer
+  momento: setas **↑ ↓** (ou PageUp/PageDown), a rodinha do mouse, o dedo na
+  tela, ou os botões **▲ ▼** que aparecem no título de cada coluna. Quando
+  você mexe, o automático espera ~25s e volta sozinho; o botão **⏸** no
+  rodapé (ou a barra de espaço) pausa de vez até você soltar de novo. O
+  rodapé mostra se está "rolando sozinho" ou em "rolagem manual";
   - a linha dos 21 dias no rodapé, destacando o dia de hoje;
   - dia do jejum, data e relógio no topo.
   Os dados se atualizam sozinhos a cada 20s. As setas ‹ › do teclado
@@ -109,12 +115,42 @@ dá pra evoluir para Firebase Auth com uma conta por discipulador.
 
 - `js/config.js`: data de início do jejum, tema, logo da igreja, PIN
   administrador padrão, e a lista de redes/PINs/logos iniciais.
-- Categorias hoje são "Jovens", "Adolescentes", "Ágape" e "Sal da Terra"
+- Categorias hoje são "Liderança", "Jovens", "Adolescentes", "Ágape" e "Sal da Terra"
   (as duas últimas são as supervisões de adultos) — se mudar os nomes das
   redes no futuro, é só editar os documentos em `redes/{id}` direto no
   Firestore (não precisa mexer no código).
 - Para dar cor própria a uma categoria nova, olhe em `css/style.css` as
   regras `.agape` / `.sal-da-terra` e copie o mesmo padrão.
+
+## Presbitério
+
+Rede da liderança, categoria "Liderança" (aparece em primeiro no Painel).
+PIN padrão: `9999`. Diferente das outras, ela já vem com as **células e os
+membros escritos no código**, em `js/config.js` → a entrada `presbiterio`
+tem um campo `celulas`:
+
+- **Pastores e obreiros** (8): Pr. Rogério, Pr.ª Irlena, Pr. Edson Filho,
+  Pr.ª Marcela, Pr. Edson Pai, Pr.ª Nice, Ob. Josemar, Ob.ª (esposa do
+  Josemar).
+- **Discipuladores** (15): Andrew e Joyce, Vinícius e Emily, Eduardo e
+  Marcella, David e Malu, Gabriel e Geovana, Gabriel e Milena, Henrique e
+  Daiana, Luiz e Magda, Michel e Bruna, Djaime e Vilma, Jean e Patrícia,
+  Marco e Viviane, Jeferson e Aline, Isaqueu e Andréia, Ivo e Dani.
+
+> Falta o nome da obreira, esposa do Josemar — está cadastrada como
+> "Ob.ª (esposa do Josemar)". Troque em `js/config.js` antes de criar, ou
+> renomeie depois direto no Firestore.
+
+Como criar tudo isso no banco: entre na **Área do discipulador** com o PIN
+da rede (ou pelo acesso administrador) e clique em **"Criar células e
+membros padrão"** — a caixa verde aparece sozinha logo acima da lista de
+células. O botão só cria o que está faltando (compara pelo nome, ignorando
+acentos e maiúsculas), então pode clicar de novo sem medo de duplicar. Se o
+banco ainda estiver vazio, o "Configurar as redes iniciais" já faz isso
+junto.
+
+Para dar a mesma comodidade a outra rede, é só adicionar um campo `celulas`
+na entrada dela em `REDES_PADRAO`, no mesmo formato.
 
 ## Adultos — Ágape e Sal da Terra
 
