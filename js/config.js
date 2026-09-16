@@ -5,12 +5,12 @@
 //    do arquivo firestore.rules que está na raiz deste pacote.
 
 export const firebaseConfig = {
-  apiKey: "AIzaSyCSALxFBcDTtMwx83MeV187fzXFweOYF9M",
-  authDomain: "vide-de619.firebaseapp.com",
-  projectId: "vide-de619",
-  storageBucket: "vide-de619.firebasestorage.app",
-  messagingSenderId: "126009883048",
-  appId: "1:126009883048:web:8d31a3fab7a4506b08059d"
+  apiKey: "AIzaSyAb7DsVFGjv_8RaGm9J9zvkKUkbkzY4uAQ",
+  authDomain: "vide-f9671.firebaseapp.com",
+  projectId: "vide-f9671",
+  storageBucket: "vide-f9671.firebasestorage.app",
+  messagingSenderId: "42290025834",
+  appId: "1:42290025834:web:d94d91df2397fb9c1d4113"
 };
 
 // Data do Dia 1 do jejum (formato AAAA-MM-DD). Ajuste se necessário.
